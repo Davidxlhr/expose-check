@@ -4,18 +4,23 @@
 
 import { pruefeAlle, verteilung } from "./auswertung.js";
 import * as ansichten from "./ansichten.js";
-import { aktualisiereEditor, zeigeEditor } from "./editor.js";
-import { regelsaetzeGleich } from "./editorlogik.js";
+import { aktualisiereEditor, verlasseEditor, zeigeEditor } from "./editor.js";
+import { regelsaetzeGleich, verworfenMeldung } from "./editorlogik.js";
 import { ladeExposes, ladeRegelsatz } from "./laden.js";
+import { pruefeAngabenformat } from "./schema.js";
 import { bindeImport, exportiere, importMeldung } from "./speicher.js";
 
 const ziel = document.querySelector("#ansicht");
 const statusmeldung = document.querySelector("#statusmeldung");
 
+// Einzige Quelle des Anwendungszustands; der Regel-Editor liest und schreibt hier direkt (K-13).
 const zustand = {
   regelsatz: null,      // angewendeter Regelsatz (zu Beginn der Standard aus regeln.json)
   standard: null,       // Standard aus regeln.json, Vergleichsbasis für „Geändert“
-  entwurf: null,        // nicht angewendeter Stand des Regel-Editors (bleibt beim Ansichtswechsel erhalten)
+  entwurf: null,        // Arbeitsstand des Regel-Editors (nur gültige Werte); null = wie der angewendete Regelsatz
+  hoechsteRegelNummer: 0, // höchste je vergebene Regelnummer, damit IDs nie wiederverwendet werden (K-1)
+  datenhinweise: [],    // Angaben in exposes.json mit unerwartetem Format (S-1 b)
+  ansicht: null,        // aktuelle Ansicht (für die Meldung beim Verlassen des Editors)
   gesichert: null,      // zuletzt exportierter oder importierter Regelsatz (liegt also als Datei vor)
   exposeDatei: null,    // Inhalt von exposes.json
   pruefungen: null,     // Map exposeId → Prüfung
@@ -40,6 +45,8 @@ function melde(text) {
 function neuAuswerten() {
   zustand.pruefungen = pruefeAlle(zustand.exposeDatei.exposes, zustand.regelsatz);
   zustand.anzahl = verteilung(zustand.pruefungen);
+  // Das erwartete Format steht im Feldkatalog des Regelsatzes, deshalb wird es mit ihm geprüft.
+  zustand.datenhinweise = pruefeAngabenformat(zustand.exposeDatei, zustand.regelsatz.felder);
 }
 
 // ---------- Routing: nur Hashes, die mit "#/" beginnen (Konzept 6.2) ----------
@@ -67,6 +74,7 @@ function blockierendeFehler(ansicht) {
 }
 
 function zeige(route, { fokus }) {
+  zustand.ansicht = route.ansicht;
   ansichten.vorschauFreigeben();
   ansichten.markiereNavigation(route.ansicht);
 
@@ -74,7 +82,8 @@ function zeige(route, { fokus }) {
   if (fehler.length > 0) {
     const titel = route.ansicht === "regeln" ? "Regeln bearbeiten" : "Übersicht";
     // F-1: Ist regeln.json nicht ladbar, bietet die Meldung den Import einer Regelsatz-Datei an.
-    ansichten.zeigeLadefehler(ziel, titel, fehler, starte,
+    // „Erneut laden“ setzt danach den Fokus auf die Überschrift der neuen Ansicht (K-10).
+    ansichten.zeigeLadefehler(ziel, titel, fehler, () => starte({ fokus: true }),
       (platz) => bindeImport(platz, "import-ladefehler", { beiErfolg: beiImport, melde }));
     setzeTitel(titel);
   } else if (route.ansicht === "liste") {
@@ -83,13 +92,10 @@ function zeige(route, { fokus }) {
   } else if (route.ansicht === "detail") {
     zeigeDetail(route.id);
   } else if (route.ansicht === "regeln") {
-    zeigeEditor(ziel, {
-      angewendet: zustand.regelsatz,
-      entwurf: zustand.entwurf,
+    // Ohne exposes.json (F-2) bleibt der Editor nutzbar, nur die Vorschau entfällt.
+    zeigeEditor(ziel, zustand, {
       kennzeichen,
-      exposes: zustand.exposeDatei?.exposes ?? null, // F-2: Editor bleibt ohne Exposés nutzbar
       melde,
-      beiAenderung: (entwurf) => { zustand.entwurf = entwurf; },
       beiAnwenden,
       beiZuruecksetzen,
       beiExport,
@@ -153,9 +159,8 @@ function rahmen() {
 }
 
 // „Prüfen und anwenden“ war erfolgreich: neuer Regelsatz, neue Auswertung, Kopfzeile (A-13).
-function beiAnwenden(regelsatz) {
-  zustand.regelsatz = regelsatz;
-  zustand.entwurf = null;
+function beiAnwenden() {
+  zustand.regelsatz = structuredClone(zustand.entwurf);
   rahmen();
   if (!zustand.exposeDatei) {
     melde("Alle Regeln gültig und angewendet.");
@@ -222,7 +227,17 @@ function beiImport(regelsatz, dateiname) {
 
 window.addEventListener("hashchange", () => {
   const route = leseRoute();
-  if (route) zeige(route, { fokus: true });
+  if (!route) return;
+  // Wer den Editor mit ungültigen Eingaben verlässt, erfährt, dass sie nicht übernommen wurden (S-3).
+  const verworfen = zustand.ansicht === "regeln" && route.ansicht !== "regeln" ? verlasseEditor() : 0;
+  zeige(route, { fokus: true });
+  if (verworfen > 0) melde(verworfenMeldung(verworfen));
+});
+
+// Sprunglink „Zum Inhalt springen“ ohne Hash-Änderung, sonst ginge die Route verloren (K-7).
+document.querySelector(".sprunglink").addEventListener("click", (ereignis) => {
+  ereignis.preventDefault();
+  document.querySelector("#inhalt").focus();
 });
 
 // Filter der Übersicht: wirkt sofort, ohne Absenden-Knopf (A-10). Ereignisdelegation am Ansichtsbereich.
@@ -237,9 +252,11 @@ window.addEventListener("resize", () => ansichten.aktualisiereScrollbereiche(zie
 
 // ---------- Start ----------
 
-async function starte() {
+// fokus: nach „Erneut laden“ – die auslösende Schaltfläche verschwindet, der Fokus geht auf die neue H1.
+async function starte({ fokus = false } = {}) {
   // Das Skript läuft, also wurde die Seite über einen Webserver geöffnet (F-8).
-  document.querySelector("#hinweis-webserver").hidden = true;
+  // Entfernen statt verstecken (K-14): kein zweites, verstecktes h1 im Dokument.
+  document.querySelector("#hinweis-webserver")?.remove();
   melde("Regeln und Exposés werden geladen …");
   ansichten.zeigeLaden(ziel);
 
@@ -258,7 +275,7 @@ async function starte() {
   zustand.gesichert = null;
   if (zustand.regelsatz && zustand.exposeDatei) neuAuswerten();
   rahmen();
-  zeige(leseRoute() ?? { ansicht: "liste" }, { fokus: false });
+  zeige(leseRoute() ?? { ansicht: "liste" }, { fokus });
 
   if (zustand.pruefungen) {
     const aktive = zustand.regelsatz.regeln.filter((r) => r.aktiv).length;

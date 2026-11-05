@@ -1,9 +1,9 @@
-// Strenge Schemaprüfung für regeln.json (Laden, ab Schritt 2 auch Import) und Grundprüfung für exposes.json.
+// Strenge Schemaprüfung für regeln.json (beim Laden und beim Import) und Grundprüfung für exposes.json.
 // Einzige Quelle der Feldschranken: Der Regel-Editor setzt seine Formularattribute (required, maxlength,
 // min, max, step) aus SCHRANKEN, die Schemaprüfung nutzt dieselben Werte (Konzept 2.5, 7.6).
 // Reines Modul ohne DOM-Zugriff.
 
-import { istIsoDatum } from "./werte.js";
+import { istIsoDatum, istIsoDatumZeit, istLeer, wertAmPfad, zerlegePfad } from "./werte.js";
 
 export const SCHEMA_VERSION = 1;
 
@@ -29,7 +29,7 @@ export const STUFEN = ["verletzt", "hinweis"];
 
 // Höchstens ein "[]" je Pfad, Segmente sind einfache Bezeichner (Konzept 2.5, Pfadsyntax).
 const PFAD_MUSTER = /^[A-Za-z_][A-Za-z0-9_]*(\[\])?(\.[A-Za-z_][A-Za-z0-9_]*(\[\])?)*$/;
-const REGEL_ID_MUSTER = /^R-\d{2,3}$/;
+const REGEL_ID_MUSTER = /^R-\d{2,}$/; // mindestens zweistellig, nach oben offen (K-1)
 const KATALOG_ID_MUSTER = /^[a-z][A-Za-z0-9]*$/;
 const EXPOSE_ID_MUSTER = /^[A-Za-z0-9_-]{1,40}$/;
 
@@ -246,6 +246,37 @@ export function pruefeExposeDatei(daten) {
       fehler.push(`${pfad}.id: ${expose.id} kommt doppelt vor`);
     } else {
       ids.add(expose.id);
+    }
+  });
+  return fehler;
+}
+
+// Formatprüfung der Angaben gegen den Feldkatalog (felder) des Regelsatzes (S-1 b).
+// Fehlende Angaben sind kein Formatfehler (das melden Pflichtfeld-Regeln). Ein vorhandener Wert im falschen
+// Format (z. B. eingang „07.11.2026“ statt „2026-11-07“) würde sonst still zu „nicht prüfbar“ und fiele
+// in der Ampel nicht auf. Die Datei wird trotzdem verwendet; die Liste erscheint als Datenhinweis.
+const FORMAT = {
+  datum: { passt: istIsoDatumZeit, text: "Datum im Format JJJJ-MM-TT (optional mit Uhrzeit THH:MM)" },
+  zahl: { passt: (w) => typeof w === "number" && Number.isFinite(w), text: "Zahl" },
+  text: { passt: (w) => typeof w === "string", text: "Text" },
+  liste: { passt: Array.isArray, text: "Liste" },
+};
+
+export function pruefeAngabenformat(daten, felder) {
+  const fehler = [];
+  const zeige = (wert) => (typeof wert === "string" ? `„${wert}“` : JSON.stringify(wert));
+  daten.exposes.forEach((expose, i) => {
+    for (const feld of felder) {
+      const format = FORMAT[feld.datentyp];
+      const { listenPfad, unterPfad } = zerlegePfad(feld.pfad);
+      const stellen = listenPfad === null
+        ? [[feld.pfad, wertAmPfad(expose, feld.pfad)]]
+        : (Array.isArray(wertAmPfad(expose, listenPfad)) ? wertAmPfad(expose, listenPfad) : [])
+          .map((element, j) => [`${listenPfad}[${j}].${unterPfad}`, element && typeof element === "object" ? wertAmPfad(element, unterPfad) : undefined]);
+      for (const [pfad, wert] of stellen) {
+        if (wert === undefined || wert === null || (typeof wert === "string" && istLeer(wert))) continue;
+        if (!format.passt(wert)) fehler.push(`${expose.id ?? `exposes[${i}]`}, ${pfad}: ${format.text} erwartet, gefunden ${zeige(wert)}`);
+      }
     }
   });
   return fehler;

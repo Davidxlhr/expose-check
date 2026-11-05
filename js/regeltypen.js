@@ -1,7 +1,7 @@
 // Regeltyp-Registry (Konzept 3.1/3.2): Jeder Typ besteht aus
 //   auswerten(datensatz, regel, kontext) → Ergebnis
 //   parameterTesten(parameter, regelsatz) → Liste von Schemafehlern (relativ zu "parameter")
-//   formular → ID des <template> im HTML (für den Regel-Editor, Schritt 2)
+//   formular → ID des <template> im HTML (Formularbaustein im Regel-Editor)
 // Ein neuer Typ heißt: einen Eintrag ergänzen. Reines Modul ohne DOM-Zugriff.
 //
 // Ergebnisobjekt: { regelId, ergebnis, soll, ist, grund, betroffene, anlass }
@@ -17,7 +17,7 @@ import {
 } from "./werte.js";
 
 export const GRUND_NICHT_PRUEFBAR = "Nicht prüfbar – Angabe fehlt";
-const GRUND_FORMAT = "Nicht prüfbar – Angabe hat ein unerwartetes Format";
+export const GRUND_FORMAT = "Nicht prüfbar – Angabe hat ein unerwartetes Format";
 
 // Rangfolge für „das schlechteste Ergebnis zählt“ (Konzept 2.5, Pfadsyntax; A-07).
 const RANG = { inaktiv: 0, ok: 1, hinweis: 2, verletzt: 3 };
@@ -117,16 +117,21 @@ function bereichText(min, max) {
   return min === max ? `genau ${min}` : `${min} bis ${max}`;
 }
 
-// Kompilierte Muster je Ausdruck (Flag "v" wie beim HTML-Attribut pattern, Konzept 3.2).
+// Kompilierte Muster je Ausdruck, wie beim HTML-Attribut pattern (WHATWG HTML, „compiled pattern regular
+// expression“): erst das Muster allein mit Flag "v" kompilieren – nur wenn das gelingt, verankert
+// "^(?:" + muster + ")$". Sonst würde z. B. „[0-9]{6})|(.*“ erst durch die Verankerung gültig (S-2).
 const musterCache = new Map();
 export function kompiliereMuster(muster) {
-  if (!musterCache.has(muster)) musterCache.set(muster, new RegExp(`^(?:${muster})$`, "v"));
+  if (!musterCache.has(muster)) {
+    new RegExp(muster, "v"); // wirft SyntaxError, wenn das Muster für sich ungültig ist
+    musterCache.set(muster, new RegExp(`^(?:${muster})$`, "v"));
+  }
   return musterCache.get(muster);
 }
 
 // Ausbau-Parameter lehnt die Kern-Prüfung verständlich ab (Konzept 2.5).
 function ausbau(text) {
-  return `${text} wird erst in einer Ausbaustufe ausgewertet und ist im Kern nicht zulässig`;
+  return `${text} wird von dieser Version noch nicht ausgewertet und ist deshalb nicht zulässig`;
 }
 
 // Prüft Parameter gegen erlaubte Schlüssel und liefert Fehler ohne "parameter."-Präfix.
@@ -304,7 +309,7 @@ export const REGELTYPEN = Object.freeze({
         pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: DATENTYPEN_FRIST });
         if (!istIsoDatum(parameter.stichtag)) fehler.push("stichtag: Datum im Format JJJJ-MM-TT erwartet");
         pruefeZahl(parameter.kulanzTage, "kulanzTage", SCHRANKEN.kulanzTage, fehler);
-        if (parameter.uhrzeit !== undefined) fehler.push(`uhrzeit: ${ausbau("Eine Uhrzeit der Frist")} (A-36)`);
+        if (parameter.uhrzeit !== undefined) fehler.push(`uhrzeit: ${ausbau("Eine Uhrzeit der Frist")}`);
       });
     },
     auswerten(datensatz, regel, kontext) {
@@ -338,10 +343,10 @@ export const REGELTYPEN = Object.freeze({
         pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: DATENTYPEN_UMFANG });
         pruefeZahl(parameter.max, "max", SCHRANKEN.umfangMax, fehler);
         if (parameter.messung !== undefined && parameter.messung !== "wert") {
-          fehler.push(`messung: ${ausbau(`Die Messung „${parameter.messung}“`)} (A-37); im Kern nur „wert“`);
+          fehler.push(`messung: ${ausbau(`Die Messung „${parameter.messung}“`)}; erlaubt ist nur „wert“`);
         }
         if (parameter.toleranzProzent !== undefined && parameter.toleranzProzent !== 0) {
-          fehler.push(`toleranzProzent: ${ausbau("Eine Toleranz")} (A-37)`);
+          fehler.push(`toleranzProzent: ${ausbau("Eine Toleranz")}`);
         }
       });
     },

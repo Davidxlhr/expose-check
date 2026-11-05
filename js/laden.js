@@ -103,12 +103,17 @@ export async function ladeExposes(pfad = PFAD_EXPOSES) {
 // Nur relative Pfade zu PDF-Dateien im Projekt, keine fremden Adressen.
 const PDF_PFAD = /^(?!.*\.\.)[\w\-./]+\.pdf$/i;
 
+// Auch Links auf das PDF (Fallback, „in neuem Tab öffnen“) nur mit geprüftem Pfad setzen (K-9).
+export function istPdfPfad(pfad) {
+  return typeof pfad === "string" && PDF_PFAD.test(pfad);
+}
+
 // Holt das PDF per fetch und liefert eine Blob-URL (Muster aus dem Spike, siehe README/Konzept RI-02):
 // Auf StackBlitz liefert ein Service Worker die Dateien aus. Anfragen von <object> gehen laut
 // Service-Worker-Standard („Handle Fetch“) an ihm vorbei, fetch dagegen nicht. Die Blob-URL braucht
 // danach keine Netzanfrage mehr. Fehler werden als kurzer Text geworfen.
 export async function ladePdf(pfad) {
-  if (!PDF_PFAD.test(pfad)) throw new Error("ungültiger Pfad");
+  if (!istPdfPfad(pfad)) throw new Error("ungültiger Pfad");
   let antwort;
   try {
     antwort = await fetch(pfad);

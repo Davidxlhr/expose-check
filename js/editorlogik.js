@@ -10,19 +10,24 @@ const REGEL_SCHLUESSEL = ["bezeichnung", "stufe", "aktiv", "quelle"];
 
 // ---------- Regeln ----------
 
-// Nächste freie Regel-ID: höchste vorhandene Nummer + 1, mindestens zweistellig („R-19“).
-// IDs werden nie wiederverwendet, solange eine höhere existiert; so bleiben sie eindeutig (Konzept 2.5).
-export function naechsteRegelId(regeln) {
-  const hoechste = regeln.reduce((max, r) => Math.max(max, Number(/^R-(\d+)$/.exec(r.id)?.[1] ?? 0)), 0);
+// Nummer einer Regel-ID: „R-19“ → 19 (0, wenn das Format nicht passt).
+export function regelNummer(id) {
+  return Number(/^R-(\d+)$/.exec(id)?.[1] ?? 0);
+}
+
+// Nächste Regel-ID: höchste Nummer + 1, mindestens zweistellig („R-19“). „bisherHoechste“ ist die höchste
+// je vergebene Nummer; so wird eine ID auch nach dem Entfernen nicht erneut vergeben (Konzept 2.5).
+export function naechsteRegelId(regeln, bisherHoechste = 0) {
+  const hoechste = regeln.reduce((max, r) => Math.max(max, regelNummer(r.id)), bisherHoechste);
   return `R-${String(hoechste + 1).padStart(2, "0")}`;
 }
 
-// Neue Regel mit sinnvollen Standardwerten; im Kern nur für pflichtfeld und anzahl (A-14).
-export function neueRegel(typ, regelsatz) {
+// Neue Regel mit sinnvollen Standardwerten; hinzufügbar sind pflichtfeld und anzahl (Konzept A-14).
+export function neueRegel(typ, regelsatz, bisherHoechste = 0) {
   const regeltyp = REGELTYPEN[typ];
-  if (!regeltyp?.hinzufuegbar) throw new Error(`Regeln vom Typ „${typ}“ lassen sich im Kern nicht hinzufügen.`);
+  if (!regeltyp?.hinzufuegbar) throw new Error(`Regeln vom Typ „${typ}“ lassen sich hier nicht hinzufügen.`);
   return {
-    id: naechsteRegelId(regelsatz.regeln),
+    id: naechsteRegelId(regelsatz.regeln, bisherHoechste),
     bezeichnung: `Neue Regel: ${regeltyp.bezeichnung}`,
     typ,
     aktiv: true,
@@ -33,12 +38,15 @@ export function neueRegel(typ, regelsatz) {
 }
 
 // Erzeugt aus den Formulardaten eines Regelblocks die neue Regel. `daten` enthält bereits typgerechte
-// Werte (Zahl, Wahrheitswert, Text). ID, Typ und Bedingung bleiben unverändert (im Kern nicht editierbar),
+// Werte (Zahl, Wahrheitswert, Text). ID, Typ und Bedingung bleiben unverändert (im Editor nicht änderbar),
 // ebenso Parameter ohne Formularfeld (z. B. umfang.messung).
+// Eine leere Quelle wird als „keine Quelle“ gespeichert (der Schlüssel ist optional), damit ein Regelsatz
+// ohne Quellenangabe durch das bloße Öffnen im Editor nicht als geändert gilt (K-2).
 export function regelAusFormulardaten(bisher, daten) {
   const regel = structuredClone(bisher);
   for (const [name, wert] of Object.entries(daten)) {
-    if (REGEL_SCHLUESSEL.includes(name)) regel[name] = wert;
+    if (name === "quelle" && wert.trim() === "") delete regel.quelle;
+    else if (REGEL_SCHLUESSEL.includes(name)) regel[name] = wert;
     else regel.parameter[name] = wert;
   }
   return regel;
@@ -157,7 +165,7 @@ export function feldBezeichnung(regelsatz, pfad) {
 export function bedingungText(regel, regelsatz) {
   if (!regel.wenn) return null;
   return `Gilt nur bei ${anzeigeMitKatalog(regelsatz, regel.wenn.feld, regel.wenn.gleich)} ` +
-    `(${feldBezeichnung(regelsatz, regel.wenn.feld)}). Die Bedingung ist im Kern nicht bearbeitbar.`;
+    `(${feldBezeichnung(regelsatz, regel.wenn.feld)}). Die Bedingung lässt sich hier nicht ändern.`;
 }
 
 // Teile der Live-Vorschau: je Gesamtstatus Anzahl und Vergleich mit dem angewendeten Stand.
@@ -169,13 +177,23 @@ export function vorschauTeile(neu, angewendet) {
   }));
 }
 
-export function vorschauText(neu, angewendet) {
-  return "Mit diesen Regeln: " + vorschauTeile(neu, angewendet)
-    .map((t) => (t.vorher === null ? t.text : `${t.text} (bisher ${t.vorher})`)).join(" · ");
+// Inhaltlicher Vergleich zweier Regelsätze, unabhängig von der Reihenfolge der Schlüssel
+// (z. B. wenn eine Quelle entfernt und wieder eingetragen wurde) und mit leerer Quelle = keine Quelle.
+export function regelsaetzeGleich(a, b) {
+  return stabil(normalisiere(a)) === stabil(normalisiere(b));
 }
 
-export function regelsaetzeGleich(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
+function normalisiere(regelsatz) {
+  if (!regelsatz?.regeln) return regelsatz;
+  return { ...regelsatz, regeln: regelsatz.regeln.map(({ quelle, ...rest }) => (quelle ? { ...rest, quelle } : rest)) };
+}
+
+function stabil(wert) {
+  if (Array.isArray(wert)) return `[${wert.map(stabil).join(",")}]`;
+  if (wert && typeof wert === "object") {
+    return `{${Object.keys(wert).sort().map((k) => `${JSON.stringify(k)}:${stabil(wert[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(wert);
 }
 
 export function regelMeldung(regel, aktion) {
@@ -184,6 +202,29 @@ export function regelMeldung(regel, aktion) {
 
 export function eintragMeldung(katalog, wert, aktion) {
   return `Eintrag ${wert === "" ? "(leer)" : wert} ${aktion === "hinzugefügt" ? "zu" : "aus"} „${katalog.bezeichnung}“ ${aktion}.`;
+}
+
+// Meldung für einen neuen Katalogeintrag (K-4): Bei Zahlenkatalogen ist der Wert vorbelegt,
+// bei Textkatalogen sind Wert und Text leer.
+export function neuerEintragMeldung(katalog, eintrag) {
+  return katalogArt(katalog) === "zahl" && eintrag.wert !== ""
+    ? `Eintrag ${eintrag.wert} zu „${katalog.bezeichnung}“ hinzugefügt. Bitte den Text ergänzen.`
+    : `Neuer Eintrag in „${katalog.bezeichnung}“ hinzugefügt. Bitte Wert und Text ergänzen.`;
+}
+
+// Info-Zeile eines Katalogs; wird nach jeder Änderung neu berechnet, damit sie nach dem Entfernen oder
+// Ändern einer Katalog-Regel nicht veraltet (K-3).
+export function katalogInfo(id, katalog, regeln) {
+  const nutzer = regeln.filter((r) => r.typ === "katalog" && r.parameter.katalog === id).map((r) => r.id);
+  return `${katalogArt(katalog) === "zahl" ? "Zahlenwerte" : "Textwerte"} · verwendet von ${nutzer.length > 0 ? nutzer.join(", ") : "keiner Regel"}`;
+}
+
+export function nichtAngewendetMeldung(n) {
+  return `Nicht angewendet: ${fehlerzahlText(n)}.`;
+}
+
+export function verworfenMeldung(n) {
+  return n === 1 ? "1 ungültige Eingabe wurde verworfen." : `${n} ungültige Eingaben wurden verworfen.`;
 }
 
 export function fehlerzahlText(n) {

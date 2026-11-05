@@ -2,8 +2,8 @@
 // Kein Zustand außer der laufenden PDF-Vorschau; Ereignisse verarbeitet main.js (Controller).
 
 import { AMPEL_TEXT, GESAMTSTATUS, anzeigeMitKatalog, begruendung, ergebnisText, sortiereErgebnisse } from "./auswertung.js";
-import { ladePdf } from "./laden.js";
-import { anzahlText, datumAnzeigen, elementBezeichnung, istLeer, wertAmPfad, wertAnzeigen, zahlAnzeigen } from "./werte.js";
+import { istPdfPfad, ladePdf } from "./laden.js";
+import { anzahlText, datumAnzeigen, elementBezeichnung, istIsoDatumZeit, istLeer, wertAmPfad, wertAnzeigen, zahlAnzeigen } from "./werte.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -41,8 +41,11 @@ function statusAnzeige(status, text, plakette = false) {
   return el("span", { class: `status status-${status}${plakette ? " status-plakette" : ""}` }, symbol(status), el("span", {}, text));
 }
 
-function zeitAnzeige(iso) {
-  if (typeof iso !== "string" || iso.length < 10) return el("span", { class: "nicht-angegeben" }, "nicht angegeben");
+// <time datetime> nur mit gültigem ISO-Wert; ein Wert im falschen Format erscheint als Text (S-1 b).
+function zeitAnzeige(iso, { zweizeilig = true } = {}) {
+  if (istLeer(iso)) return el("span", { class: "nicht-angegeben" }, "nicht angegeben");
+  if (!istIsoDatumZeit(iso)) return el("span", { class: "nicht-pruefbar" }, `${wertAnzeigen(iso)} (Format ungültig)`);
+  if (!zweizeilig) return el("time", { datetime: iso }, datumAnzeigen(iso));
   const datum = datumAnzeigen(iso.slice(0, 10));
   const uhrzeit = iso.length > 10 ? `${iso.slice(11, 16)} Uhr` : null;
   return el("time", { datetime: iso }, datum, uhrzeit && el("span", { class: "uhrzeit" }, uhrzeit));
@@ -201,7 +204,7 @@ function legende() {
     ["verletzt", "Verstoß", "Eine Vorgabe ist nicht erfüllt."],
     ["hinweis", "Hinweis", "Auffällig, aber keine feste Vorgabe – bitte ansehen."],
     ["ok", "Erfüllt", "Die Angabe entspricht der Vorgabe."],
-    ["inaktiv", "Entfällt", "Regel gilt hier nicht oder ist nicht prüfbar; zählt nicht für den Status."],
+    ["inaktiv", "Entfällt / nicht prüfbar", "Regel gilt hier nicht oder die Angabe fehlt; zählt nicht für den Status."],
   ];
   return el("section", { class: "karte", "aria-labelledby": "legende-titel" },
     el("div", { class: "karte-kopf" }, el("h2", { id: "legende-titel" }, "So lesen Sie die Ergebnisse")),
@@ -224,14 +227,29 @@ function mitgliederZelle(expose, regelsatz) {
   }));
 }
 
+// „nicht prüfbar“ steht mit dabei, ändert aber den Gesamtstatus nicht (S-1 a).
 function auffaelligkeitenText(zaehler) {
   const teile = [];
   if (zaehler.verletzt > 0) teile.push(anzahlText(zaehler.verletzt, "Verstoß", "Verstöße"));
   if (zaehler.hinweis > 0) teile.push(anzahlText(zaehler.hinweis, "Hinweis", "Hinweise"));
-  return teile.length > 0 ? teile.join(", ") : el("span", { class: "leise" }, "keine");
+  const nichtPruefbar = zaehler.nichtPruefbar > 0 && el("span", { class: "nicht-pruefbar" }, `${zaehler.nichtPruefbar} nicht prüfbar`);
+  if (teile.length === 0) return nichtPruefbar || el("span", { class: "leise" }, "keine");
+  return [teile.join(", "), nichtPruefbar && [", ", nichtPruefbar]];
 }
 
-export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, filter }) {
+// Datenhinweis (S-1 b): Angaben im falschen Format machen Regeln „nicht prüfbar“ – das soll auffallen.
+function datenhinweisBox(datenhinweise) {
+  if (!datenhinweise?.length) return null;
+  const n = datenhinweise.length;
+  return el("section", { class: "meldung meldung-hinweis", "aria-labelledby": "datenhinweis-titel" },
+    el("h2", { class: "meldung-titel", id: "datenhinweis-titel" }, symbol("hinweis"),
+      el("span", {}, n === 1 ? "1 Angabe in exposes.json hat ein unerwartetes Format" : `${n} Angaben in exposes.json haben ein unerwartetes Format`)),
+    el("p", {}, "Die betroffenen Regeln gelten dort als „nicht prüfbar“ und zählen nicht für den Status. Bitte die Angaben in der Datei korrigieren."),
+    el("ul", { class: "fehlerliste" }, datenhinweise.slice(0, 10).map((t) => el("li", {}, t)),
+      n > 10 && el("li", {}, `… und ${n - 10} weitere`)));
+}
+
+export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, filter, datenhinweise }) {
   const sortiert = sortiereExposes(exposes, pruefungen);
   const aktive = regelsatz.regeln.filter((r) => r.aktiv).length;
 
@@ -283,12 +301,14 @@ export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, 
     el("tbody", {}, zeilen,
       el("tr", { class: "leer-zeile", hidden: true }, el("td", { colspan: 5 }, "Keine Exposés mit diesem Status."))));
 
-  ziel.replaceChildren(
+  ziel.replaceChildren(...[
     ansichtKopf("Übersicht", `${exposes.length} Exposés, geprüft gegen ${aktive} aktive Regeln. Verstöße stehen oben.`),
+    datenhinweisBox(datenhinweise),
     el("div", { class: "uebersicht-raster" }, grafik, legende()),
     filterFeld,
     // Scrollbereich ist per Tastatur erreichbar und benannt, falls die Tabelle breiter als der Bildschirm ist.
-    el("div", { class: "tabelle-rahmen", role: "region", "aria-labelledby": "tabelle-beschriftung" }, tabelle));
+    el("div", { class: "tabelle-rahmen", role: "region", "aria-labelledby": "tabelle-beschriftung" }, tabelle),
+  ].filter(Boolean)); // replaceChildren fügt null sonst als Text „null“ ein
 
   return wendeFilterAn(ziel, filter, anzahl);
 }
@@ -421,8 +441,9 @@ function zaehlerText(zaehler) {
     anzahlText(zaehler.verletzt, "Verstoß", "Verstöße"),
     anzahlText(zaehler.hinweis, "Hinweis", "Hinweise"),
     `${zaehler.ok} erfüllt`,
-    `${zaehler.inaktiv} entfällt oder nicht prüfbar`,
-  ].join(" · ");
+    zaehler.entfaellt > 0 && `${zaehler.entfaellt} entfällt`,
+    zaehler.nichtPruefbar > 0 && `${zaehler.nichtPruefbar} nicht prüfbar`,
+  ].filter(Boolean).join(" · ");
 }
 
 export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, naechstes }) {
@@ -432,7 +453,7 @@ export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, nae
     el("p", { class: "detail-meta" },
       el("span", { class: "mono" }, expose.id),
       arbeitsform && el("span", {}, arbeitsform),
-      typeof expose.eingang === "string" && el("span", {}, "Eingang ", el("time", { datetime: expose.eingang }, datumAnzeigen(expose.eingang)))),
+      !istLeer(expose.eingang) && el("span", {}, "Eingang ", zeitAnzeige(expose.eingang, { zweizeilig: false }))),
     el("h1", { tabindex: "-1" }, expose.titel || "(ohne Titel)"),
     // Auf schmalen Bildschirmen steht die Vorschau unter allen Ergebnissen; der Link führt direkt hin.
     el("p", { class: "nur-schmal" }, sprungZurVorschau()),
@@ -458,7 +479,7 @@ export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, nae
         flaeche,
         el("figcaption", {},
           "Vorschau – geprüft werden die erfassten Angaben, nicht der PDF-Inhalt.",
-          expose.pdf && [" ", el("a", { href: expose.pdf, target: "_blank", rel: "noopener" }, "PDF in neuem Tab öffnen")]))));
+          istPdfPfad(expose.pdf) && [" ", el("a", { href: expose.pdf, target: "_blank", rel: "noopener" }, "PDF in neuem Tab öffnen")]))));
 
   ziel.replaceChildren(
     el("nav", { class: "detail-navigation", "aria-label": "Exposé-Navigation" },
@@ -515,7 +536,7 @@ async function zeigePdfVorschau(flaeche, expose) {
     console.error(fehler);
     flaeche.replaceChildren(ersatz("Das PDF konnte nicht geladen werden",
       `Grund: ${fehler.message}.`,
-      el("a", { href: expose.pdf, target: "_blank", rel: "noopener" }, "PDF direkt öffnen")));
+      istPdfPfad(expose.pdf) && el("a", { href: expose.pdf, target: "_blank", rel: "noopener" }, "PDF direkt öffnen")));
     return;
   }
   if (anfrage !== letzteAnfrage) {

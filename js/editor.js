@@ -2,6 +2,14 @@
 // Constraint Validation mit eigenen deutschen Meldungen, Fehlerübersicht mit Sprunglinks,
 // dynamisch hinzufügbare Regeln und Katalogeinträge, Live-Vorschau im <output>.
 // Die Logik ohne DOM-Bezug liegt in editorlogik.js; angewendet wird über Rückrufe aus main.js.
+//
+// Übernahmemodell (Konzept 7.6, präzisiert): Der Entwurf (zustand.entwurf) enthält nur gültige Werte.
+// - Regeln: Eine Regel wird übernommen, sobald alle ihre Felder gültig sind; sonst gilt ihr letzter
+//   gültiger Stand weiter (je Regel, damit z. B. Mindest- und Höchstanzahl nie widersprüchlich übernommen werden).
+// - Katalogeinträge: je Eintrag; ein ungültiger Eintrag behält seinen letzten gültigen Stand, ein neuer
+//   Eintrag zählt erst, wenn er gültig ist.
+// - Entfernen wirkt sofort, unabhängig von der Gültigkeit anderer Felder.
+// Angewendet (zustand.regelsatz) wird erst mit „Prüfen und anwenden“.
 
 import { pruefeAlle, verteilung } from "./auswertung.js";
 import { el, symbol } from "./ansichten.js";
@@ -11,33 +19,33 @@ import { SCHRANKEN, pruefeRegelsatz } from "./schema.js";
 import { bindeImport } from "./speicher.js";
 
 let form = null;
-let entwurf = null;        // Arbeitsstand: enthält nur gültige Werte (Konzept 7.6)
-let optionen = null;       // { angewendet, exposes, kennzeichen, melde, beiAenderung, beiAnwenden, beiZuruecksetzen, beiExport, beiImport }
-let anzahlAngewendet = null;
+let z = null;              // Zustand aus main.js – einzige Quelle für angewendeten Regelsatz (z.regelsatz) und Entwurf (z.entwurf)
+let optionen = null;       // Rückrufe: { kennzeichen, melde, beiAnwenden, beiZuruecksetzen, beiExport, beiImport }
 let eintragZaehler = 0;    // für eindeutige IDs neuer Katalogzeilen
+const letzterGueltiger = new WeakMap(); // Katalogzeile → letzter gültiger Eintrag { wert, text }
 
 // ---------- Aufbau ----------
 
-export function zeigeEditor(ziel, opts) {
-  optionen = opts;
-  entwurf = structuredClone(opts.entwurf ?? opts.angewendet);
-  anzahlAngewendet = opts.exposes ? verteilung(pruefeAlle(opts.exposes, opts.angewendet)) : null;
+export function zeigeEditor(ziel, zustand, rueckrufe) {
+  z = zustand;
+  optionen = rueckrufe;
+  z.entwurf ??= structuredClone(z.regelsatz);
 
   ziel.replaceChildren(vorlage("vorlage-editor"));
   form = ziel.querySelector("#regel-editor");
 
   const kopf = form.querySelector('[data-block="kopf"]');
   verdrahte(kopf, "regelsatz");
-  setzeWerte(kopf, { name: entwurf.name, stand: entwurf.stand });
+  setzeWerte(kopf, { name: z.entwurf.name, stand: z.entwurf.stand });
 
-  form.querySelector("[data-regel-liste]").append(...entwurf.regeln.map(regelBlock));
+  form.querySelector("[data-regel-liste]").append(...z.entwurf.regeln.map(regelBlock));
 
   form.querySelector("#neuer-regeltyp").append(...Object.entries(REGELTYPEN)
     .filter(([, typ]) => typ.hinzufuegbar)
     .map(([name, typ]) => el("option", { value: name }, `${typ.bezeichnung} – ${typ.beschreibung}`)));
 
   form.querySelector("[data-katalog-liste]").append(
-    ...Object.entries(entwurf.kataloge).map(([id, katalog]) => katalogBlock(id, katalog)));
+    ...Object.entries(z.entwurf.kataloge).map(([id, katalog]) => katalogBlock(id, katalog)));
 
   // Ereignisdelegation: ein Satz Listener am form, auch für später hinzugefügte Felder (Konzept 7.5).
   // focusout statt blur, weil blur nicht blubbert (UI Events, Tabelle der Fokusereignisse).
@@ -149,17 +157,17 @@ function regelBlock(regel) {
 
   for (const auswahl of block.querySelectorAll("select[data-optionen]")) {
     const quelle = {
-      felder: () => logik.feldOptionen(entwurf, typ.feldDatentypen),
-      listen: () => logik.feldOptionen(entwurf, ["liste"], { ohneUnterfelder: true }),
-      merkmale: () => logik.merkmalOptionen(entwurf, regel.parameter.liste),
-      kataloge: () => Object.entries(entwurf.kataloge).map(([id, k]) => ({ wert: id, text: k.bezeichnung })),
+      felder: () => logik.feldOptionen(z.entwurf, typ.feldDatentypen),
+      listen: () => logik.feldOptionen(z.entwurf, ["liste"], { ohneUnterfelder: true }),
+      merkmale: () => logik.merkmalOptionen(z.entwurf, regel.parameter.liste),
+      kataloge: () => Object.entries(z.entwurf.kataloge).map(([id, k]) => ({ wert: id, text: k.bezeichnung })),
     }[auswahl.dataset.optionen];
     fuelleAuswahl(auswahl, quelle());
   }
   setzeWerte(block, { ...regel.parameter, bezeichnung: regel.bezeichnung, stufe: regel.stufe, aktiv: regel.aktiv, quelle: regel.quelle ?? "" });
   for (const text of block.querySelectorAll("[data-regel-id-text]")) text.textContent = regel.id;
   block.querySelector("[data-typ-text]").textContent = `Typ: ${typ.bezeichnung} – ${typ.beschreibung}`;
-  const bedingung = logik.bedingungText(regel, entwurf);
+  const bedingung = logik.bedingungText(regel, z.entwurf);
   if (bedingung) {
     const absatz = block.querySelector("[data-bedingung]");
     absatz.textContent = bedingung;
@@ -172,6 +180,8 @@ function regelBlock(regel) {
 function aktualisiereRegelTexte(block, regel) {
   block.querySelector("[data-legende-text]").textContent = regel.bezeichnung;
   block.classList.toggle("regel-aus", !regel.aktiv);
+  // Echter Text in der legend (K-5): wird als Teil des Gruppennamens vorgelesen, anders als CSS-::after.
+  block.querySelector("[data-inaktiv-text]").hidden = regel.aktiv;
 }
 
 function katalogBlock(id, katalog) {
@@ -180,16 +190,14 @@ function katalogBlock(id, katalog) {
   block.dataset.kennung = katalog.bezeichnung;
   block.classList.toggle("text-katalog", logik.katalogArt(katalog) === "text");
   block.querySelector("[data-katalog-name]").textContent = katalog.bezeichnung;
-  const nutzer = entwurf.regeln.filter((r) => r.typ === "katalog" && r.parameter.katalog === id).map((r) => r.id);
-  block.querySelector("[data-katalog-info]").textContent =
-    `${logik.katalogArt(katalog) === "zahl" ? "Zahlenwerte" : "Textwerte"} · verwendet von ${nutzer.length > 0 ? nutzer.join(", ") : "keiner Regel"}`;
   block.querySelector("[data-katalog-zusatz]").textContent = ` zu „${katalog.bezeichnung}“`;
   block.querySelector("[data-eintraege]").append(...katalog.werte.map((eintrag) => eintragZeile(katalog, eintrag)));
   nummeriereEintraege(block);
   return block;
 }
 
-function eintragZeile(katalog, eintrag) {
+// bestehend = Eintrag aus dem Entwurf (gilt als gültig); neue Einträge zählen erst, wenn sie gültig sind.
+function eintragZeile(katalog, eintrag, bestehend = true) {
   const zeile = vorlage("vorlage-katalogeintrag").firstElementChild;
   const wertFeld = zeile.querySelector('[data-feld="wert"]');
   // Zahlenkataloge erfassen den Wert als Zahl (Konzept 7.5), Textkataloge als Text.
@@ -204,6 +212,7 @@ function eintragZeile(katalog, eintrag) {
   eintragZaehler += 1;
   verdrahte(zeile, `k${eintragZaehler}`);
   setzeWerte(zeile, eintrag);
+  if (bestehend) letzterGueltiger.set(zeile, { ...eintrag });
   return zeile;
 }
 
@@ -214,6 +223,10 @@ function nummeriereEintraege(block) {
     zeile.dataset.kennung = `${name}, Eintrag ${i + 1}`;
     for (const zusatz of zeile.querySelectorAll("[data-eintrag-zusatz]")) zusatz.textContent = ` – ${name}, Eintrag ${i + 1}`;
   });
+}
+
+function zeilenWert(zeile) {
+  return { wert: leseWert(zeile.querySelector('[data-feld="wert"]')), text: zeile.querySelector('[data-feld="text"]').value };
 }
 
 function zeilenWerte(block) {
@@ -315,21 +328,37 @@ function blockGueltig(block) {
 // Übernimmt einen Baustein in den Entwurf – nur, wenn alle seine Felder gültig sind.
 // Sonst bleibt der letzte gültige Stand (Konzept 7.6: „Ungültige Werte werden nicht übernommen“).
 function uebernehme(block) {
-  if (!block || !block.dataset.block || !blockGueltig(block)) return false;
+  if (!block || !block.dataset.block) return false;
+  if (block.dataset.block === "katalog") {
+    uebernehmeKatalog(block);
+    return true;
+  }
+  if (!blockGueltig(block)) return false;
   if (block.dataset.block === "regel") {
-    const stelle = entwurf.regeln.findIndex((r) => r.id === block.dataset.regelId);
-    entwurf.regeln[stelle] = logik.regelAusFormulardaten(entwurf.regeln[stelle], blockDaten(block));
-    aktualisiereRegelTexte(block, entwurf.regeln[stelle]);
+    const stelle = z.entwurf.regeln.findIndex((r) => r.id === block.dataset.regelId);
+    z.entwurf.regeln[stelle] = logik.regelAusFormulardaten(z.entwurf.regeln[stelle], blockDaten(block));
+    aktualisiereRegelTexte(block, z.entwurf.regeln[stelle]);
   } else if (block.dataset.block === "kopf") {
-    Object.assign(entwurf, blockDaten(block));
-  } else if (block.dataset.block === "katalog") {
-    entwurf.kataloge[block.dataset.katalogId].werte = zeilenWerte(block);
+    Object.assign(z.entwurf, blockDaten(block));
   }
   return true;
 }
 
+// Katalog: je Zeile der aktuelle Wert, wenn die Zeile gültig ist, sonst ihr letzter gültiger Stand.
+// Neue, noch nie gültige Zeilen zählen nicht. So wirkt auch Entfernen sofort (S-3).
+function uebernehmeKatalog(block) {
+  const zeilen = [...block.querySelectorAll("[data-eintrag]")];
+  for (const zeile of zeilen) {
+    if (zeileGueltig(zeile)) letzterGueltiger.set(zeile, zeilenWert(zeile));
+  }
+  z.entwurf.kataloge[block.dataset.katalogId].werte = zeilen.map((zeile) => letzterGueltiger.get(zeile)).filter(Boolean);
+}
+
+function zeileGueltig(zeile) {
+  return [...zeile.querySelectorAll("[data-feld]")].every((feld) => feld.validity.valid);
+}
+
 function nachAenderung() {
-  optionen.beiAenderung(entwurf);
   aktualisiereAnzeigen();
 }
 
@@ -352,7 +381,7 @@ function beiAenderung(ereignis) {
   const block = feld.closest("[data-block]");
   // Abhängige Auswahl: Liste gewechselt → Merkmale neu befüllen (Konzept 7.5).
   if (feld.dataset.feld === "liste") {
-    fuelleAuswahl(block.querySelector('[data-feld="merkmal"]'), logik.merkmalOptionen(entwurf, feld.value));
+    fuelleAuswahl(block.querySelector('[data-feld="merkmal"]'), logik.merkmalOptionen(z.entwurf, feld.value));
   }
   eigenePruefungen(block);
   for (const f of verbundeneFelder(feld)) {
@@ -417,21 +446,21 @@ function beiAbsenden(ereignis) {
   const ungueltig = felder.filter((f) => !f.validity.valid);
   if (ungueltig.length > 0) {
     zeigeFehleruebersicht(ungueltig);
+    // Eine frühere Erfolgsmeldung darf nicht stehen bleiben (M-2).
+    optionen.melde(logik.nichtAngewendetMeldung(ungueltig.length));
     return;
   }
   versteckeFehleruebersicht();
   bloecke.forEach(uebernehme);
 
   // Sicherheitsnetz: dieselbe Schemaprüfung wie beim Laden von regeln.json.
-  const schemafehler = pruefeRegelsatz(entwurf, REGELTYPEN);
+  const schemafehler = pruefeRegelsatz(z.entwurf, REGELTYPEN);
   if (schemafehler.length > 0) {
     console.error(schemafehler);
     optionen.melde(`Nicht angewendet: ${schemafehler[0]}`);
     return;
   }
-  optionen.angewendet = structuredClone(entwurf);
-  anzahlAngewendet = optionen.exposes ? verteilung(pruefeAlle(optionen.exposes, entwurf)) : null;
-  optionen.beiAnwenden(structuredClone(entwurf));
+  optionen.beiAnwenden();
   aktualisiereAnzeigen();
 }
 
@@ -442,7 +471,16 @@ function zaehleUngueltige() {
 }
 
 function hatOffeneAenderungen() {
-  return !logik.regelsaetzeGleich(entwurf, optionen.angewendet);
+  return !logik.regelsaetzeGleich(z.entwurf, z.regelsatz);
+}
+
+// Beim Verlassen der Ansicht: Wie viele ungültige Eingaben gehen verloren? (S-3; der Entwurf behält
+// nur gültige Werte, das Formular selbst wird beim nächsten Öffnen aus dem Entwurf neu aufgebaut.)
+export function verlasseEditor() {
+  if (!form?.isConnected) return 0;
+  const anzahl = zaehleUngueltige();
+  form = null;
+  return anzahl;
 }
 
 // Nach Aktionen außerhalb des Editors (Export): Kennzeichen neu zeichnen.
@@ -484,8 +522,10 @@ function bereinigeFehleruebersicht() {
 
 function regelHinzufuegen() {
   const typ = form.querySelector("#neuer-regeltyp").value;
-  const regel = logik.neueRegel(typ, entwurf);
-  entwurf.regeln.push(regel);
+  // IDs werden nie wiederverwendet, auch nicht nach dem Entfernen (K-1): Der Zustand merkt sich die höchste vergebene Nummer.
+  const regel = logik.neueRegel(typ, z.entwurf, z.hoechsteRegelNummer);
+  z.hoechsteRegelNummer = logik.regelNummer(regel.id);
+  z.entwurf.regeln.push(regel);
   const block = regelBlock(regel);
   form.querySelector("[data-regel-liste]").append(block);
   block.querySelector('[data-feld="bezeichnung"]').focus(); // erstes Feld des neuen Bausteins
@@ -495,40 +535,45 @@ function regelHinzufuegen() {
 
 function regelEntfernen(knopf) {
   const block = knopf.closest('[data-block="regel"]');
-  const regel = entwurf.regeln.find((r) => r.id === block.dataset.regelId);
+  const regel = z.entwurf.regeln.find((r) => r.id === block.dataset.regelId);
   const vorherige = block.previousElementSibling;
-  entwurf = logik.entferneRegel(entwurf, regel.id);
+  const naechste = block.nextElementSibling;
+  z.entwurf = logik.entferneRegel(z.entwurf, regel.id);
   block.remove();
   bereinigeFehleruebersicht();
-  // Fokus auf die vorherige Regel, sonst auf die Auswahl „Regel hinzufügen“ (Konzept 7.5).
-  (vorherige?.querySelector('[data-aktion="regel-entfernen"]') ?? form.querySelector("#neuer-regeltyp")).focus();
+  // Fokus auf die vorherige Regel (Konzept 7.5). War es die erste, auf das erste Feld der nun ersten Regel
+  // statt ans Formularende (K-10); gab es nur diese eine Regel, auf die Auswahl „Regel hinzufügen“.
+  (vorherige?.querySelector('[data-aktion="regel-entfernen"]')
+    ?? naechste?.querySelector('[data-feld="bezeichnung"]')
+    ?? form.querySelector("#neuer-regeltyp")).focus();
   optionen.melde(logik.regelMeldung(regel, "entfernt"));
   nachAenderung();
 }
 
 function eintragHinzufuegen(knopf) {
   const block = knopf.closest('[data-block="katalog"]');
-  const katalog = entwurf.kataloge[block.dataset.katalogId];
+  const katalog = z.entwurf.kataloge[block.dataset.katalogId];
   // Vorschlag aus den Zeilen im Formular, damit auch noch nicht übernommene Zeilen zählen.
   const eintrag = logik.neuerKatalogeintrag({ ...katalog, werte: zeilenWerte(block).filter((z) => !Number.isNaN(z.wert)) });
-  const zeile = eintragZeile(katalog, eintrag);
+  const zeile = eintragZeile(katalog, eintrag, false);
   block.querySelector("[data-eintraege]").append(zeile);
   nummeriereEintraege(block);
   zeile.querySelector('[data-feld="wert"]').focus();
-  optionen.melde(`${logik.eintragMeldung(katalog, eintrag.wert, "hinzugefügt")} Bitte den Text ergänzen.`);
+  optionen.melde(logik.neuerEintragMeldung(katalog, eintrag));
   eigenePruefungen(block);
   if (uebernehme(block)) nachAenderung();
 }
 
 function eintragEntfernen(knopf) {
   const block = knopf.closest('[data-block="katalog"]');
-  const katalog = entwurf.kataloge[block.dataset.katalogId];
-  const zeilen = block.querySelectorAll("[data-eintrag]");
-  if (zeilen.length === 1) {
-    optionen.melde(`„${katalog.bezeichnung}“ braucht mindestens einen Eintrag. Der letzte Eintrag bleibt erhalten.`);
+  const katalog = z.entwurf.kataloge[block.dataset.katalogId];
+  const zeile = knopf.closest("[data-eintrag]");
+  // Ein Katalog braucht mindestens einen gültigen Eintrag (Schemaprüfung); der letzte bleibt erhalten.
+  const verbleibend = [...block.querySelectorAll("[data-eintrag]")].filter((z2) => z2 !== zeile && letzterGueltiger.has(z2));
+  if (verbleibend.length === 0) {
+    optionen.melde(`„${katalog.bezeichnung}“ braucht mindestens einen gültigen Eintrag. Dieser Eintrag bleibt erhalten.`);
     return;
   }
-  const zeile = knopf.closest("[data-eintrag]");
   const wert = leseWert(zeile.querySelector('[data-feld="wert"]'));
   const vorherige = zeile.previousElementSibling;
   zeile.remove();
@@ -539,14 +584,15 @@ function eintragEntfernen(knopf) {
   for (const feld of block.querySelectorAll('[data-feld="wert"][aria-invalid="true"]')) zeigeFeldstatus(feld);
   (vorherige?.querySelector('[data-aktion="eintrag-entfernen"]') ?? block.querySelector('[data-aktion="eintrag-hinzufuegen"]')).focus();
   optionen.melde(logik.eintragMeldung(katalog, Number.isNaN(wert) ? "" : wert, "entfernt"));
-  if (uebernehme(block)) nachAenderung();
+  uebernehmeKatalog(block); // sofort, unabhängig von anderen ungültigen Zeilen (S-3)
+  nachAenderung();
 }
 
 // ---------- Anzeigen: Stand, Regelzahl, Vorschau ----------
 
 function aktualisiereAnzeigen() {
-  const aktive = entwurf.regeln.filter((r) => r.aktiv).length;
-  form.querySelector("[data-regelzahl]").textContent = `${entwurf.regeln.length} Regeln, davon ${aktive} aktiv`;
+  const aktive = z.entwurf.regeln.filter((r) => r.aktiv).length;
+  form.querySelector("[data-regelzahl]").textContent = `${z.entwurf.regeln.length} Regeln, davon ${aktive} aktiv`;
 
   const stand = form.closest("#ansicht").querySelector("[data-stand]");
   const kennzeichen = optionen.kennzeichen();
@@ -557,22 +603,29 @@ function aktualisiereAnzeigen() {
     hatOffeneAenderungen() && el("span", { class: "kennzeichen kennzeichen-offen" }, "Nicht angewendete Änderungen"),
   ].filter(Boolean));
 
+  // Katalog-Infos („verwendet von …“) aus dem aktuellen Entwurf (K-3).
+  for (const block of form.querySelectorAll('[data-block="katalog"]')) {
+    const id = block.dataset.katalogId;
+    block.querySelector("[data-katalog-info]").textContent = logik.katalogInfo(id, z.entwurf.kataloge[id], z.entwurf.regeln);
+  }
+
   // Sprungnavigation zu den Regeln (seitenintern, ohne Hash-Änderung).
-  form.closest("#ansicht").querySelector("[data-regel-nav]").replaceChildren(...entwurf.regeln.map((regel) =>
+  form.closest("#ansicht").querySelector("[data-regel-nav]").replaceChildren(...z.entwurf.regeln.map((regel) =>
     el("li", { class: regel.aktiv ? null : "nav-aus" },
       el("a", { href: `#${praefixVon(regel)}-bezeichnung`, "data-sprung": `${praefixVon(regel)}-bezeichnung` },
         el("span", { class: "mono" }, regel.id), " ", regel.bezeichnung))));
 
   // Live-Vorschau im <output> (Konzept 7.1): Ergebnis einer Berechnung aus den Formularwerten.
   const ausgabe = form.querySelector("#editor-vorschau");
-  if (!optionen.exposes) {
+  const exposes = z.exposeDatei?.exposes;
+  if (!exposes) {
     ausgabe.textContent = "Keine Exposé-Daten geladen – keine Vorschau möglich.";
     return;
   }
-  const neu = verteilung(pruefeAlle(optionen.exposes, entwurf));
+  const neu = verteilung(pruefeAlle(exposes, z.entwurf));
   ausgabe.replaceChildren(
     el("span", { class: "vorschau-titel" }, "Mit diesen Regeln:"),
-    ...logik.vorschauTeile(neu, anzahlAngewendet).map((teil) =>
+    ...logik.vorschauTeile(neu, z.anzahl).map((teil) =>
       el("span", { class: `vorschau-teil status-${teil.status}` }, symbol(teil.status),
         el("span", {}, teil.text),
         teil.vorher !== null && el("span", { class: "vorschau-vorher" }, ` (bisher ${teil.vorher})`))));

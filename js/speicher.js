@@ -22,31 +22,15 @@ export function exportDateiname(datum = new Date()) {
   return `regeln-${datum.getFullYear()}-${zwei(datum.getMonth() + 1)}-${zwei(datum.getDate())}.json`;
 }
 
-// Fehlerstelle aus der Meldung von JSON.parse. Die Meldungen sind nicht standardisiert:
-// Chrome nennt meist „(line 5 column 3)“ bzw. „position 87“, Firefox „at line 5 column 3“, Safari oft nichts.
-// Bei „Unexpected token“ nennt Chrome (V8) keine Position, sondern nur einen Ausschnitt um die Stelle:
-//   Unexpected token ''', ..."  "name": 'Test'↵}" is not valid JSON
-// Dann wird der Ausschnitt im Text gesucht; ist er nicht eindeutig, bleibt die Stelle unbekannt.
+// Fehlerstelle aus der Meldung von JSON.parse. Die Meldungen sind nicht standardisiert und je Browser
+// verschieden. Zeile und Spalte werden nur übernommen, wenn der Browser sie nennt („line 3 column 1“,
+// Chrome und Firefox) oder eine Position angibt („position 11“); sonst bleibt die Stelle offen (K-13).
 export function jsonFehlerstelle(meldung, text) {
   const zeileSpalte = /line (\d+) column (\d+)/.exec(meldung);
   if (zeileSpalte) return { zeile: Number(zeileSpalte[1]), spalte: Number(zeileSpalte[2]) };
   const position = /position (\d+)/.exec(meldung);
-  if (position) return zeileUndSpalte(text, Number(position[1]));
-  // Auslassungspunkte stehen bei V8 außerhalb der Anführungszeichen: ..."ausschnitt"...
-  const kontext = /^Unexpected token '(.+?)', (?:\.\.\.)?"([\s\S]*)"(?:\.\.\.)? is not valid JSON$/.exec(meldung);
-  if (kontext) {
-    const [, zeichen, ausschnitt] = kontext;
-    const beginn = text.indexOf(ausschnitt);
-    const imAusschnitt = ausschnitt.indexOf(zeichen);
-    if (ausschnitt && beginn >= 0 && text.indexOf(ausschnitt, beginn + 1) === -1 && imAusschnitt >= 0) {
-      return zeileUndSpalte(text, beginn + imAusschnitt);
-    }
-  }
-  return null;
-}
-
-function zeileUndSpalte(text, position) {
-  const vorher = text.slice(0, position).split("\n");
+  if (!position) return null;
+  const vorher = text.slice(0, Number(position[1])).split("\n");
   return { zeile: vorher.length, spalte: vorher.at(-1).length + 1 };
 }
 
@@ -71,7 +55,8 @@ export function pruefeImport({ name, groesse, text }) {
   } catch (fehler) {
     const stelle = jsonFehlerstelle(String(fehler.message), text);
     return abgelehnt(`„${name}“ ist keine gültige JSON-Datei.`, [
-      stelle ? `Fehler in Zeile ${stelle.zeile}, Spalte ${stelle.spalte}.` : "Die Datei lässt sich nicht als JSON lesen.",
+      ...(stelle ? [`Fehler in Zeile ${stelle.zeile}, Spalte ${stelle.spalte}.`] : []),
+      `Meldung des Browsers: ${fehler.message}`,
       "Häufige Ursachen: fehlendes oder überzähliges Komma, einfache statt doppelter Anführungszeichen, Kommentare.",
     ]);
   }
@@ -126,8 +111,15 @@ export function bindeImport(platz, praefix, { beiErfolg, melde }) {
     const datei = feld.files?.[0];
     if (!datei) return;
     // Erst die Größe prüfen, dann lesen: eine zu große Datei wird gar nicht eingelesen.
-    const text = datei.size > MAX_IMPORT_BYTES ? "" : await datei.text();
-    const ergebnis = pruefeImport({ name: datei.name, groesse: datei.size, text });
+    let ergebnis;
+    try {
+      const text = datei.size > MAX_IMPORT_BYTES ? "" : await datei.text();
+      ergebnis = pruefeImport({ name: datei.name, groesse: datei.size, text });
+    } catch (fehler) {
+      // Lesefehler, z. B. Datei inzwischen gelöscht oder ohne Leserecht (K-8).
+      console.error(fehler);
+      ergebnis = { ok: false, titel: `„${datei.name}“ konnte nicht gelesen werden.`, fehlerliste: [], weitere: 0 };
+    }
     // Auswahl zurücksetzen, sonst löst dieselbe Datei nach einer Korrektur kein change mehr aus.
     feld.value = "";
     if (ergebnis.ok) {

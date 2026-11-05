@@ -1,7 +1,7 @@
 // Prüf-Engine: wendet einen gültigen Regelsatz auf Exposé-Datensätze an (Konzept 3.1, A-06 bis A-08).
 // Bedingung "wenn", Gesamtstatus (Ampel), Begründungstexte. Reines Modul ohne DOM-Zugriff.
 
-import { REGELTYPEN, inaktiv } from "./regeltypen.js";
+import { GRUND_FORMAT, REGELTYPEN, inaktiv } from "./regeltypen.js";
 import { wertAmPfad, wertAnzeigen } from "./werte.js";
 
 // Gesamtstatus eines Exposés; Reihenfolge = Sortierung „schlechtestes zuerst“.
@@ -79,15 +79,21 @@ export function pruefeExpose(expose, regelsatz) {
       if (entfaellt) return entfaellt;
       try {
         return REGELTYPEN[regel.typ].auswerten(expose, regel, kontext);
-      } catch {
+      } catch (fehler) {
         // Sicherheitsnetz für unerwartete Datenformen in einem einzelnen Datensatz (F-4):
-        // Die Regel gilt als nicht prüfbar, die übrigen Regeln laufen weiter.
-        return inaktiv(regel, "fehlt", "Nicht prüfbar – Angabe hat ein unerwartetes Format");
+        // Die Regel gilt als nicht prüfbar, die übrigen Regeln laufen weiter. Details in die Konsole (K-8).
+        console.error(`Regel ${regel.id} bei Exposé ${expose.id} nicht auswertbar:`, fehler);
+        return inaktiv(regel, "fehlt", GRUND_FORMAT);
       }
     });
 
-  const zaehler = { verletzt: 0, hinweis: 0, ok: 0, inaktiv: 0 };
-  for (const e of ergebnisse) zaehler[e.ergebnis] += 1;
+  // inaktiv getrennt nach Anlass: „entfällt“ (Bedingung) und „nicht prüfbar“ (Angabe fehlt oder unlesbar).
+  // Beides zählt nicht für die Ampel, „nicht prüfbar“ wird aber in der Übersicht sichtbar gemacht (S-1).
+  const zaehler = { verletzt: 0, hinweis: 0, ok: 0, inaktiv: 0, entfaellt: 0, nichtPruefbar: 0 };
+  for (const e of ergebnisse) {
+    zaehler[e.ergebnis] += 1;
+    if (e.ergebnis === "inaktiv") zaehler[e.anlass === "wenn" ? "entfaellt" : "nichtPruefbar"] += 1;
+  }
   return { exposeId: expose.id, ergebnisse, gesamt: gesamtstatus(ergebnisse), zaehler };
 }
 

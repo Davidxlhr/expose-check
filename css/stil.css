@@ -669,9 +669,9 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
 .block > legend + * { clear: both; }
 .regel.regel-aus { background: var(--flaeche-leise); }
 .regel.regel-aus > legend { color: var(--text-leise); }
-.regel.regel-aus > legend::after {
-  content: "inaktiv – wird nicht geprüft";
-  margin-left: 0.625rem;
+.inaktiv-kennzeichen {
+  display: inline-block;
+  margin-left: 0.375rem;
   padding: 0.0625rem 0.5rem;
   border: 1px solid var(--rahmen-stark);
   border-radius: 999px;
@@ -886,6 +886,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--akzent); ou
 .editor-aktionen { display: flex; flex-wrap: wrap; gap: var(--a1); }
 .verwaltung { display: grid; gap: var(--a2); margin-top: var(--a3); }
 .verwaltung-raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--a2) var(--a3); }
+.verwaltung > *, .verwaltung-teil, .import { min-width: 0; } /* sonst erzwingt die Dateiauswahl ihre Eigenbreite (Reflow bei 320 px) */
 .verwaltung-teil { display: grid; gap: 0.625rem; align-content: start; }
 .verwaltung-teil h3 { font-size: 1rem; }
 
@@ -893,6 +894,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--akzent); ou
 .import { display: grid; gap: 0.375rem; }
 .import label { font-weight: 600; font-size: 0.9375rem; }
 input[type="file"] {
+  width: 100%;
   max-width: 100%;
   min-height: 2.75rem;
   padding: 0.375rem;
@@ -945,6 +947,9 @@ input[type="file"]::file-selector-button {
   background: var(--flaeche);
 }
 .meldung-fehler { border-left-color: var(--verletzt); }
+.meldung-hinweis { border-left-color: var(--hinweis-symbol); margin-bottom: var(--a3); }
+.meldung-hinweis .meldung-titel .symbol { color: var(--hinweis-symbol); }
+.nicht-pruefbar { color: var(--inaktiv); font-style: italic; }
 .meldung-titel { display: flex; align-items: center; gap: 0.625rem; font-size: 1.25rem; }
 .meldung-titel .symbol { width: 1.5rem; height: 1.5rem; color: var(--verletzt); }
 .meldung p { max-width: var(--lesebreite); }

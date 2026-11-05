@@ -10,7 +10,7 @@
 </head>
 <body>
   <!-- Statussymbole mit eigener Form (Konzept 6.1): Kreis mit Häkchen, Dreieck mit Ausrufezeichen,
-       Achteck mit Kreuz, Strich. Die Farbe kommt über currentColor, die Innenzeichnung über --symbol-innen.
+       Achteck mit Kreuz, Strich. Die Farbe kommt über currentColor, die Innenzeichnung über die CSS-Variable symbol-innen.
        Die Symbole sind immer aria-hidden; der Status steht zusätzlich als Text daneben. -->
   <svg class="sprite" aria-hidden="true" focusable="false">
     <symbol id="symbol-ok" viewBox="0 0 20 20">
@@ -118,11 +118,12 @@
       </details>
     </nav>
     <form id="regel-editor" class="editor" novalidate>
-      <div class="fehleruebersicht" id="fehleruebersicht" tabindex="-1" aria-labelledby="fehleruebersicht-titel" hidden>
-        <h2 id="fehleruebersicht-titel" class="fehleruebersicht-titel"></h2>
+      <!-- section mit Namen = Landmark „region“; ein div darf laut ARIA 1.2 keinen Namen tragen (Rolle generic). -->
+      <section class="fehleruebersicht" id="fehleruebersicht" tabindex="-1" aria-labelledby="fehleruebersicht-titel" hidden>
+        <h2 id="fehleruebersicht-titel" class="fehleruebersicht-titel">Eingaben müssen korrigiert werden</h2>
         <p>Angewendet wird erst, wenn alle Eingaben gültig sind.</p>
         <ul class="fehleruebersicht-liste"></ul>
-      </div>
+      </section>
 
       <fieldset class="block" data-block="kopf" data-kennung="Regelsatz">
         <legend>Regelsatz</legend>
@@ -202,7 +203,8 @@
   <!-- Hülle jeder Regel: gemeinsame Felder (Konzept 3.2, „Gemeinsame Formularteile“). -->
   <template id="vorlage-regel">
     <fieldset class="block regel" data-block="regel">
-      <legend><span data-regel-id-text></span> · <span data-legende-text></span></legend>
+      <legend><span data-regel-id-text></span> · <span data-legende-text></span>
+        <span class="inaktiv-kennzeichen" data-inaktiv-text hidden>(inaktiv – wird nicht geprüft)</span></legend>
       <p class="regel-typ-zeile" data-typ-text></p>
       <div class="felder-raster">
         <div class="feldgruppe breit">
