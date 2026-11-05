@@ -20,4 +20,8 @@ Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
 Ein Öffnen der `index.html` per Doppelklick (`file://`) funktioniert nicht, weil Browser Module und
 `fetch` nur über HTTP laden.
 
+**Bleibt StackBlitz bei „Mounting environment“ hängen?** Manche Browser-Erweiterungen (z. B. Krypto-Wallets)
+stören die StackBlitz-Umgebung. Den Link dann in einem privaten Fenster öffnen; dort sind Erweiterungen
+standardmäßig deaktiviert. Am zuverlässigsten läuft StackBlitz in Chromium-basierten Browsern.
+
 > Projektstand: in Entwicklung
