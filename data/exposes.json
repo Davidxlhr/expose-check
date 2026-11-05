@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "meta": {
-    "herkunft": "Synthetische Testdaten, mit KI erzeugt und manuell geprüft. Alle Personen, Matrikelnummern und Inhalte sind erfunden.",
+    "herkunft": "Synthetische Testdaten, mit KI erzeugt und per Prüfskript sowie Stichproben geprüft. Alle Personen, Matrikelnummern und Inhalte sind erfunden.",
     "erstellt": "2026-11-05",
     "dokumentation": "Seminararbeit, Kapitel 2"
   },
