@@ -9,4 +9,15 @@ Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
 - Regeln und Exposé-Daten liegen als JSON-Dateien vor und werden per `fetch` geladen
 - Alle Exposé-Daten sind synthetisch erzeugte Testdaten
 
+## Starten
+
+- **Online:** https://stackblitz.com/github/Davidxlhr/expose-check – StackBlitz installiert den statischen
+  Server aus der `package.json` und startet ihn automatisch.
+- **Lokal:** im Projektordner einen einfachen Webserver starten und die angezeigte Adresse im Browser öffnen:
+  - `python3 -m http.server` (dann http://localhost:8000) oder
+  - `npm install && npm start` (dann http://localhost:8080)
+
+Ein Öffnen der `index.html` per Doppelklick (`file://`) funktioniert nicht, weil Browser Module und
+`fetch` nur über HTTP laden.
+
 > Projektstand: in Entwicklung

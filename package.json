@@ -1,0 +1,11 @@
+{
+  "name": "expose-check",
+  "private": true,
+  "description": "Prototyp eines konfigurierbaren Prüfassistenten für die formale Sichtung von Exposés",
+  "scripts": {
+    "start": "servor"
+  },
+  "devDependencies": {
+    "servor": "4.0.2"
+  }
+}

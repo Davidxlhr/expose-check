@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exposé-Check (Spike)</title>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Exposé-Check</h1>
+    <p>Technischer Durchstich: JSON per fetch laden, PDF per object anzeigen.</p>
+  </header>
+
+  <main>
+    <!-- Statischer Hinweis: Das Skript blendet ihn beim Start aus. Unter file:// blockiert der Browser
+         das Modulskript, dann bleibt er stehen – eine Prüfung im Skript selbst käme nie zur Ausführung. -->
+    <p id="hinweis-webserver">
+      Bleibt dieser Hinweis stehen, bitte die Seite über einen Webserver öffnen (StackBlitz oder lokal),
+      nicht per Doppelklick als Datei.
+    </p>
+
+    <p role="status" id="statusmeldung">Daten werden geladen …</p>
+
+    <div id="fehler" role="alert"></div>
+
+    <section aria-labelledby="ueberschrift-daten">
+      <h2 id="ueberschrift-daten">Daten</h2>
+      <p id="anzahl-regeln"></p>
+      <ul id="expose-liste"></ul>
+    </section>
+
+    <section aria-labelledby="ueberschrift-vorschau">
+      <h2 id="ueberschrift-vorschau">PDF-Vorschau</h2>
+      <div id="vorschau">
+        <p>Titel in der Liste wählen, um das Exposé anzuzeigen.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
