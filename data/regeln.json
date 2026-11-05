@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "name": "Exposé-Vorgaben Web Technologie, WS 2026",
+  "stand": "2026-11-05",
+  "quelle": "Folien F. 10, F. 14, F. 18 (Prüfung und Benotung, WS 2026) und Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+  "felder": [
+    { "pfad": "eingang",                     "bezeichnung": "Eingang der Mail",             "datentyp": "datum" },
+    { "pfad": "dateiformat",                 "bezeichnung": "Dateiformat",                  "datentyp": "text" },
+    { "pfad": "arbeitsform",                 "bezeichnung": "Arbeitsform",                  "datentyp": "text" },
+    { "pfad": "mitglieder",                  "bezeichnung": "Mitglieder",                   "datentyp": "liste",
+      "elementName": "name", "elementBezeichnung": "Mitglied" },
+    { "pfad": "mitglieder[].name",           "bezeichnung": "Name",                         "datentyp": "text" },
+    { "pfad": "mitglieder[].matrikelnummer", "bezeichnung": "Matrikelnummer",               "datentyp": "text" },
+    { "pfad": "mitglieder[].schwerpunkte",   "bezeichnung": "Theorieschwerpunkt",           "datentyp": "liste" },
+    { "pfad": "notenform",                   "bezeichnung": "Gruppennote oder Einzelnoten", "datentyp": "text" },
+    { "pfad": "problem",                     "bezeichnung": "Problem",                      "datentyp": "text" },
+    { "pfad": "zweck",                       "bezeichnung": "Was die Anwendung tun soll",   "datentyp": "text" },
+    { "pfad": "umfangSeiten",                "bezeichnung": "Umfang (DIN-A4-Seiten)",       "datentyp": "zahl" }
+  ],
+  "kataloge": {
+    "schwerpunkte": {
+      "bezeichnung": "Theoretische Schwerpunkte",
+      "werte": [
+        { "wert": 1, "text": "Das DOM und clientseitige Dynamik" },
+        { "wert": 2, "text": "CSS-Layoutkonzepte und Responsive Design" },
+        { "wert": 3, "text": "Hypermedia und Multimedia in Abgrenzung" },
+        { "wert": 4, "text": "Modalitäten, Interaktion und Wahrnehmung" },
+        { "wert": 5, "text": "Interaktionsparadigmen der Human-Computer-Interaction" },
+        { "wert": 6, "text": "Semantisches HTML und Formulare" },
+        { "wert": 7, "text": "Client-Server-Kommunikation: HTTP, REST und JSON" },
+        { "wert": 8, "text": "Client-Server-Architektur am Beispiel KI-gestützter Entwicklung" }
+      ]
+    },
+    "arbeitsform": {
+      "bezeichnung": "Arbeitsform",
+      "werte": [
+        { "wert": "einzelarbeit",  "text": "Einzelarbeit" },
+        { "wert": "gruppenarbeit", "text": "Gruppenarbeit" }
+      ]
+    },
+    "notenform": {
+      "bezeichnung": "Notenform",
+      "werte": [
+        { "wert": "gruppennote", "text": "Gruppennote" },
+        { "wert": "einzelnoten", "text": "Einzelnoten" }
+      ]
+    },
+    "dateiformate": {
+      "bezeichnung": "Zulässige Dateiformate",
+      "werte": [
+        { "wert": "pdf", "text": "PDF" }
+      ]
+    }
+  },
+  "regeln": [
+    { "id": "R-01", "bezeichnung": "Name jeder Person ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "Mail des Dozenten vom 05.11.2026, Punkt Exposé; F. 18 (Gruppenmitglieder)",
+      "parameter": { "feld": "mitglieder[].name" } },
+    { "id": "R-02", "bezeichnung": "Matrikelnummer jeder Person ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "mitglieder[].matrikelnummer" } },
+    { "id": "R-03", "bezeichnung": "Matrikelnummer hat das erwartete Format", "typ": "muster", "aktiv": false, "stufe": "hinweis",
+      "quelle": "Annahme: Format weder in Folien noch Mail vorgegeben; 6 Ziffern nach einem einzigen bekannten Beispiel. Deshalb inaktiv und nur Hinweis.",
+      "parameter": { "feld": "mitglieder[].matrikelnummer", "muster": "[0-9]{6}", "beschreibung": "6 Ziffern" } },
+    { "id": "R-04", "bezeichnung": "Arbeitsform ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "arbeitsform" } },
+    { "id": "R-05", "bezeichnung": "Arbeitsform ist gültig", "typ": "katalog", "aktiv": true, "stufe": "verletzt",
+      "quelle": "Mail des Dozenten vom 05.11.2026, Punkt Exposé; F. 10 (Einzel- oder Gruppenarbeit)",
+      "parameter": { "feld": "arbeitsform", "katalog": "arbeitsform" } },
+    { "id": "R-06", "bezeichnung": "Gruppengröße 1 bis 3 Personen", "typ": "anzahl", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 10 (Gruppenarbeit max. 3 Personen)",
+      "parameter": { "feld": "mitglieder", "min": 1, "max": 3 } },
+    { "id": "R-07", "bezeichnung": "Einzelarbeit: genau eine Person", "typ": "anzahl", "aktiv": true, "stufe": "hinweis",
+      "quelle": "abgeleitet aus F. 10 und Mail (Plausibilität, keine wörtliche Vorgabe)",
+      "parameter": { "feld": "mitglieder", "min": 1, "max": 1 },
+      "wenn": { "feld": "arbeitsform", "gleich": "einzelarbeit" } },
+    { "id": "R-08", "bezeichnung": "Gruppenarbeit: mindestens zwei Personen", "typ": "anzahl", "aktiv": true, "stufe": "hinweis",
+      "quelle": "abgeleitet aus F. 10 und Mail (Plausibilität, keine wörtliche Vorgabe)",
+      "parameter": { "feld": "mitglieder", "min": 2, "max": 3 },
+      "wenn": { "feld": "arbeitsform", "gleich": "gruppenarbeit" } },
+    { "id": "R-09", "bezeichnung": "Problem ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (Problem); Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "problem" } },
+    { "id": "R-10", "bezeichnung": "Zweck der Anwendung ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (was die Anwendung tun soll); Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "zweck" } },
+    { "id": "R-11", "bezeichnung": "Je Person genau ein Theorieschwerpunkt", "typ": "anzahl", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 14 (genau ein Schwerpunkt je Person); F. 18; Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "mitglieder[].schwerpunkte", "min": 1, "max": 1 } },
+    { "id": "R-12", "bezeichnung": "Schwerpunkt stammt aus dem Katalog", "typ": "katalog", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 14 (Liste der Schwerpunkte 1–8); Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "mitglieder[].schwerpunkte", "katalog": "schwerpunkte" } },
+    { "id": "R-13", "bezeichnung": "In der Gruppe verschiedene Schwerpunkte", "typ": "eindeutig", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 14 (in einer Gruppe jede Person ein anderer Schwerpunkt)",
+      "parameter": { "liste": "mitglieder", "merkmal": "schwerpunkte" } },
+    { "id": "R-14", "bezeichnung": "Gruppenarbeit: Gruppennote oder Einzelnoten ist angegeben", "typ": "pflichtfeld", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (Gruppennote oder Einzelnoten; Wahl besteht nur bei Gruppen)",
+      "parameter": { "feld": "notenform" },
+      "wenn": { "feld": "arbeitsform", "gleich": "gruppenarbeit" } },
+    { "id": "R-15", "bezeichnung": "Gruppenarbeit: Notenform ist gültig", "typ": "katalog", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (Gruppennote oder Einzelnoten; Wahl besteht nur bei Gruppen)",
+      "parameter": { "feld": "notenform", "katalog": "notenform" },
+      "wenn": { "feld": "arbeitsform", "gleich": "gruppenarbeit" } },
+    { "id": "R-16", "bezeichnung": "Eingang bis zum 06.11.2026", "typ": "frist", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (Exposé bis 06.11.2026); Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "eingang", "stichtag": "2026-11-06", "kulanzTage": 0 } },
+    { "id": "R-17", "bezeichnung": "Umfang höchstens ½ DIN-A4-Seite", "typ": "umfang", "aktiv": true, "stufe": "verletzt",
+      "quelle": "F. 18 (½ DIN-A4-Seite); Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "umfangSeiten", "messung": "wert", "max": 0.5 } },
+    { "id": "R-18", "bezeichnung": "Eingereicht als PDF", "typ": "katalog", "aktiv": true, "stufe": "verletzt",
+      "quelle": "Mail des Dozenten vom 05.11.2026, Punkt Exposé",
+      "parameter": { "feld": "dateiformat", "katalog": "dateiformate" } }
+  ]
+}

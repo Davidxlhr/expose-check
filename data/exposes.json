@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "herkunft": "Synthetische Testdaten, mit KI erzeugt und manuell geprüft. Alle Personen, Matrikelnummern und Inhalte sind erfunden.",
+    "erstellt": "2026-11-05",
+    "dokumentation": "Seminararbeit, Kapitel 2"
+  },
+  "exposes": [
+    {
+      "id": "E-01",
+      "titel": "Nebenkosten-Übersicht für Wohngemeinschaften",
+      "eingang": "2026-11-01T11:00",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Sara Beispiel", "matrikelnummer": "000101", "schwerpunkte": [7] },
+        { "name": "Jan Exempel", "matrikelnummer": "000102", "schwerpunkte": [1] }
+      ],
+      "notenform": "einzelnoten",
+      "problem": "Strom, Heizung und Internet werden in WGs über Chat-Nachrichten und Zettel abgerechnet; niemand sieht, wer wie viel bezahlt hat und welche Kosten im Jahresvergleich steigen.",
+      "zweck": "Browser-App, die Rechnungen aus einer JSON-Datei lädt, Anteile je Person berechnet und den Verlauf der Kosten als Diagramm zeigt.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-01.pdf"
+    },
+    {
+      "id": "E-02",
+      "titel": "Wahlpflicht-Vergleich für das dritte Semester",
+      "eingang": "2026-11-02",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Emma Exempel", "matrikelnummer": "000103", "schwerpunkte": [8] },
+        { "name": "Paul Probe", "matrikelnummer": "0001A2", "schwerpunkte": [2] },
+        { "name": "Lina Musterfrau", "matrikelnummer": "000104", "schwerpunkte": [3] }
+      ],
+      "notenform": "gruppennote",
+      "problem": "Die Beschreibungen der Wahlpflichtmodule liegen in einzelnen PDF-Dateien; Arbeitsaufwand, Prüfungsform und Termine lassen sich kaum nebeneinander vergleichen.",
+      "zweck": "Vergleichsansicht, in der Studierende zwei bis drei Module auswählen und nach eigenen Kriterien gewichten; das Ergebnis erscheint als Rangfolge mit Begründung.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-02.pdf"
+    },
+    {
+      "id": "E-03",
+      "titel": "Erklärseite zur Mülltrennung im Wohnheim",
+      "eingang": "2026-11-03T09:40",
+      "dateiformat": "pdf",
+      "arbeitsform": "teamarbeit",
+      "mitglieder": [
+        { "name": "Jana Beispiel", "matrikelnummer": "000105", "schwerpunkte": [3] },
+        { "name": "Malte Probe", "matrikelnummer": "000106", "schwerpunkte": [7] }
+      ],
+      "notenform": "gruppennote",
+      "problem": "Neue Bewohnerinnen und Bewohner kennen die Trennregeln des Wohnheims nicht; Fehlwürfe führen regelmäßig zu Nachgebühren für alle.",
+      "zweck": "",
+      "umfangSeiten": 0.4,
+      "pdf": "pdf/E-03.pdf"
+    },
+    {
+      "id": "E-04",
+      "titel": "Gießplan-Assistent für Zimmerpflanzen",
+      "eingang": "2026-11-03T20:05",
+      "dateiformat": "pdf",
+      "arbeitsform": "einzelarbeit",
+      "mitglieder": [
+        { "name": "Noah Muster", "matrikelnummer": "00103", "schwerpunkte": [2] }
+      ],
+      "notenform": null,
+      "problem": "Wer neu Pflanzen pflegt, kennt deren Bedarf an Wasser und Licht nicht; Pflegehinweise sind verstreut und widersprechen sich.",
+      "zweck": "Responsive Web-App, die Pflanzenprofile aus JSON lädt und daraus einen Gießplan für die Woche mit Erinnerungsliste erstellt.",
+      "umfangSeiten": 0.35,
+      "pdf": "pdf/E-04.pdf"
+    },
+    {
+      "id": "E-05",
+      "titel": "Fristenkompass für das Semester",
+      "eingang": "2026-11-04T09:12",
+      "dateiformat": "pdf",
+      "arbeitsform": "einzelarbeit",
+      "mitglieder": [
+        { "name": "Mia Beispiel", "matrikelnummer": "000107", "schwerpunkte": [6] }
+      ],
+      "notenform": "einzelnoten",
+      "problem": "Abgabe-, Anmelde- und Rückmeldefristen stehen in verschiedenen Mails und Portalen; Studierende übersehen Termine oder erfahren zu spät davon.",
+      "zweck": "Formular zum Erfassen eigener Fristen und eine Zeitleiste, die die nächsten Termine nach Dringlichkeit ordnet und filtert.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-05.pdf"
+    },
+    {
+      "id": "E-06",
+      "titel": "Digitale Unterweisung für die Laborsicherheit",
+      "eingang": "2026-11-04T14:30",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Ole Exempel", "matrikelnummer": "000108", "schwerpunkte": [3] }
+      ],
+      "notenform": "gruppennote",
+      "problem": "Die Sicherheitsunterweisung im Lehrlabor besteht aus einem langen Merkblatt; ob neue Hilfskräfte die Inhalte verstanden haben, wird nicht festgehalten.",
+      "zweck": "Interaktive Unterweisung mit kurzen Abschnitten, Bildern der Laborplätze und einer Abschlussfrage je Abschnitt; die Bestätigung kann ausgedruckt werden.",
+      "umfangSeiten": 0.35,
+      "pdf": "pdf/E-06.pdf"
+    },
+    {
+      "id": "E-07",
+      "titel": "Ausleihübersicht für den Gerätepool",
+      "eingang": "2026-11-04",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Eva Muster", "matrikelnummer": "000109", "schwerpunkte": [] },
+        { "name": "Leo Testmann", "matrikelnummer": "000110", "schwerpunkte": [2, 5] }
+      ],
+      "notenform": null,
+      "problem": "Kameras, Stative und Mikrofone des Medienraums werden auf Papierlisten verliehen; ob ein Gerät frei ist, erfährt man erst vor Ort.",
+      "zweck": "Ausleihformular mit Prüfung der Zeiträume und eine Belegungsansicht je Gerät, die Überschneidungen sichtbar macht.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-07.pdf"
+    },
+    {
+      "id": "E-08",
+      "titel": "Pausenplaner für Schichtteams",
+      "eingang": "2026-11-05T08:05",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Kim Beispiel", "matrikelnummer": "000111", "schwerpunkte": [1] },
+        { "name": "Lars Muster", "matrikelnummer": "000112", "schwerpunkte": [2] },
+        { "name": "Mila Probe", "matrikelnummer": "000113", "schwerpunkte": [4] },
+        { "name": "Nils Exempel", "matrikelnummer": "000114", "schwerpunkte": [8] }
+      ],
+      "notenform": "einzelnoten",
+      "problem": "In kleinen Schichtteams werden Pausen mündlich abgesprochen; zu Stoßzeiten sind zu wenige Personen am Platz, und gesetzliche Pausenzeiten werden übersehen.",
+      "zweck": "Tagesansicht, in der Teammitglieder Pausen eintragen; die App warnt bei Unterbesetzung und zeigt fehlende Pausenzeiten an.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-08.pdf"
+    },
+    {
+      "id": "E-09",
+      "titel": "Mängelmelder für das Studierendenwohnheim",
+      "eingang": "2026-11-05T10:20",
+      "dateiformat": "docx",
+      "arbeitsform": null,
+      "mitglieder": [
+        { "name": "Lukas Beispiel", "matrikelnummer": "000115", "schwerpunkte": [4] }
+      ],
+      "notenform": null,
+      "problem": "Defekte Lampen, tropfende Wasserhähne und klemmende Fenster werden per Zuruf gemeldet; Meldungen gehen verloren und werden doppelt bearbeitet.",
+      "zweck": "Meldeformular mit Raumauswahl und Foto sowie eine Statusliste, in der die Hausverwaltung offene Meldungen abarbeitet.",
+      "umfangSeiten": 0.4,
+      "pdf": null
+    },
+    {
+      "id": "E-10",
+      "titel": "Trainingstagebuch für den Vereinssport",
+      "eingang": "2026-11-05T13:47",
+      "dateiformat": "pdf",
+      "arbeitsform": "einzelarbeit",
+      "mitglieder": [
+        { "name": "Max Probe", "matrikelnummer": "000116", "schwerpunkte": [5] },
+        { "name": "Ida Muster", "matrikelnummer": "000117", "schwerpunkte": [6] }
+      ],
+      "notenform": null,
+      "problem": "Trainingseinheiten im Verein werden nicht festgehalten; Trainerinnen und Trainer sehen Fortschritte und Ausfälle der Gruppe erst spät.",
+      "zweck": "Eingabemaske für Einheiten (Dauer, Inhalt, Anwesenheit) und eine Wochenübersicht mit Anwesenheitsquote je Person.",
+      "umfangSeiten": 0.45,
+      "pdf": "pdf/E-10.pdf"
+    },
+    {
+      "id": "E-11",
+      "titel": "Einarbeitungspfad für neue Tutorinnen und Tutoren",
+      "eingang": "2026-11-05T16:40",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Clara Testmann", "matrikelnummer": "000118", "schwerpunkte": [3] },
+        { "name": "Ben Beispiel", "matrikelnummer": "000119", "schwerpunkte": [5] }
+      ],
+      "notenform": "einzelnoten",
+      "problem": "Neue Tutorinnen und Tutoren erhalten Informationen zu Räumen, Abläufen und Ansprechpersonen verstreut; die ersten Wochen sind entsprechend unsicher.",
+      "zweck": "Schrittweiser Einarbeitungspfad mit Kapiteln, Kurzvideos und einer Fortschrittsanzeige, die erledigte Schritte im Browser speichert.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-11.pdf"
+    },
+    {
+      "id": "E-12",
+      "titel": "Raumfinder für das Hauptgebäude",
+      "eingang": "2026-11-06",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Jonas Muster", "matrikelnummer": "000120", "schwerpunkte": [1] },
+        { "name": "Lea Probe", "matrikelnummer": "000121", "schwerpunkte": [4] },
+        { "name": "Finn Exempel", "matrikelnummer": "000122", "schwerpunkte": [7] }
+      ],
+      "notenform": "gruppennote",
+      "problem": "Erstsemester finden Seminarräume in fremden Gebäudeteilen schwer; Raumnummern verraten weder Stockwerk noch Zugang.",
+      "zweck": "Suchfeld für Raumnummern mit Etagenplan als Grafik und Wegbeschreibung vom Haupteingang.",
+      "umfangSeiten": 0.4,
+      "pdf": "pdf/E-12.pdf"
+    },
+    {
+      "id": "E-13",
+      "titel": "Vereinskasse transparent machen",
+      "eingang": "2026-11-06T08:15",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Rosa Probe", "matrikelnummer": "000123", "schwerpunkte": [6] },
+        { "name": "Timo Beispiel", "matrikelnummer": "000124", "schwerpunkte": [6] },
+        { "name": "", "matrikelnummer": "000125", "schwerpunkte": [5] }
+      ],
+      "notenform": "gruppennote",
+      "problem": "Mitglieder kleiner Vereine wissen nicht, wofür Beiträge ausgegeben werden; der Kassenbericht erscheint nur einmal im Jahr.",
+      "zweck": "Übersicht über Einnahmen und Ausgaben nach Kategorien mit Diagramm und Monatsfilter, gespeist aus einer JSON-Datei der Kassenwartin.",
+      "umfangSeiten": 0.5,
+      "pdf": "pdf/E-13.pdf"
+    },
+    {
+      "id": "E-14",
+      "titel": "Gleitzeit-Rechner für Teilzeitkräfte",
+      "eingang": "2026-11-06T12:00",
+      "dateiformat": "pdf",
+      "arbeitsform": "gruppenarbeit",
+      "mitglieder": [
+        { "name": "Sophie Exempel", "matrikelnummer": "000126", "schwerpunkte": [1] },
+        { "name": "Erik Muster", "matrikelnummer": "000127", "schwerpunkte": [5] },
+        { "name": "Nora Testmann", "matrikelnummer": "000128", "schwerpunkte": [8] }
+      ],
+      "notenform": "teilnoten",
+      "zweck": "Web-App, in der Teilzeitkräfte Arbeitsbeginn, Pausen und Arbeitsende erfassen; sie berechnet Gleitzeitsaldo, Wochensoll und Überstunden und zeigt den Monatsverlauf als Diagramm.",
+      "umfangSeiten": 0.75,
+      "pdf": "pdf/E-14.pdf"
+    },
+    {
+      "id": "E-15",
+      "titel": "Fahrrad-Konfigurator für Pendelstrecken",
+      "eingang": "2026-11-06T23:41",
+      "dateiformat": "pdf",
+      "arbeitsform": "einzelarbeit",
+      "mitglieder": [
+        { "name": "Tom Testmann", "matrikelnummer": "000129", "schwerpunkte": [4] }
+      ],
+      "notenform": "einzelnoten",
+      "problem": "Wer mit dem Rad pendeln will, steht vor vielen Ausstattungsoptionen und kann nicht einschätzen, welche zu Strecke und Budget passen.",
+      "zweck": "Konfigurator, der Streckenlänge, Steigung und Budget abfragt und passende Ausstattungspakete mit Begründung vorschlägt.",
+      "umfangSeiten": 0.3,
+      "pdf": "pdf/E-15.pdf"
+    },
+    {
+      "id": "E-16",
+      "titel": "Rezeptplaner mit Einkaufsliste",
+      "eingang": "2026-11-07T07:30",
+      "dateiformat": "pdf",
+      "arbeitsform": "einzelarbeit",
+      "mitglieder": [
+        { "name": "Anna Exempel", "matrikelnummer": null, "schwerpunkte": [9] }
+      ],
+      "notenform": null,
+      "problem": "Wochenplanung und Einkauf passen selten zusammen; Lebensmittel verderben, weil Mengen und Haltbarkeit nicht mitgedacht werden.",
+      "zweck": "Planer, der Rezepte für die Woche zusammenstellt und daraus eine zusammengefasste Einkaufsliste mit Mengen erzeugt.",
+      "umfangSeiten": 0.35,
+      "pdf": "pdf/E-16.pdf"
+    }
+  ]
+}
