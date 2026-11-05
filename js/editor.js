@@ -8,10 +8,11 @@ import { el, symbol } from "./ansichten.js";
 import * as logik from "./editorlogik.js";
 import { REGELTYPEN } from "./regeltypen.js";
 import { SCHRANKEN, pruefeRegelsatz } from "./schema.js";
+import { bindeImport } from "./speicher.js";
 
 let form = null;
 let entwurf = null;        // Arbeitsstand: enthält nur gültige Werte (Konzept 7.6)
-let optionen = null;       // { angewendet, standard, exposes, melde, beiAenderung, beiAnwenden, beiZuruecksetzen }
+let optionen = null;       // { angewendet, exposes, kennzeichen, melde, beiAenderung, beiAnwenden, beiZuruecksetzen, beiExport, beiImport }
 let anzahlAngewendet = null;
 let eintragZaehler = 0;    // für eindeutige IDs neuer Katalogzeilen
 
@@ -44,9 +45,10 @@ export function zeigeEditor(ziel, opts) {
   form.addEventListener("change", beiAenderung);
   form.addEventListener("focusout", beiVerlassen);
   form.addEventListener("submit", beiAbsenden);
-  // Klicks auch außerhalb des form: Sprungnavigation und Abschnitt „Regelsatz verwalten“.
-  ziel.querySelectorAll(".regel-nav, #regel-editor, .verwaltung").forEach((bereich) => bereich.addEventListener("click", beiKlick));
+  // Klicks auch außerhalb des form: Einleitung, Sprungnavigation und Abschnitt „Regelsatz verwalten“.
+  ziel.querySelectorAll(".ansicht-kopf, .regel-nav, #regel-editor, .verwaltung").forEach((bereich) => bereich.addEventListener("click", beiKlick));
   beobachteLeiste(form.querySelector(".editor-leiste"));
+  bindeImport(ziel.querySelector("[data-import-platz]"), "import", { beiErfolg: optionen.beiImport, melde: optionen.melde });
 
   aktualisiereAnzeigen();
 }
@@ -381,6 +383,7 @@ function beiKlick(ereignis) {
     "eintrag-hinzufuegen": eintragHinzufuegen,
     "eintrag-entfernen": eintragEntfernen,
     zuruecksetzen: () => optionen.beiZuruecksetzen(),
+    exportieren: () => optionen.beiExport({ ungueltig: zaehleUngueltige(), offen: hatOffeneAenderungen() }),
   };
   aktionen[knopf.dataset.aktion]?.(knopf);
 }
@@ -430,6 +433,21 @@ function beiAbsenden(ereignis) {
   anzahlAngewendet = optionen.exposes ? verteilung(pruefeAlle(optionen.exposes, entwurf)) : null;
   optionen.beiAnwenden(structuredClone(entwurf));
   aktualisiereAnzeigen();
+}
+
+// Für den Export-Hinweis (A-19): ungültige Eingaben zählen, ohne Meldungen anzuzeigen.
+function zaehleUngueltige() {
+  form.querySelectorAll("[data-block]").forEach(eigenePruefungen);
+  return [...form.elements].filter((f) => f.dataset?.feld && f.willValidate && !f.validity.valid).length;
+}
+
+function hatOffeneAenderungen() {
+  return !logik.regelsaetzeGleich(entwurf, optionen.angewendet);
+}
+
+// Nach Aktionen außerhalb des Editors (Export): Kennzeichen neu zeichnen.
+export function aktualisiereEditor() {
+  if (form?.isConnected) aktualisiereAnzeigen();
 }
 
 // ---------- Fehlerübersicht ----------
@@ -531,13 +549,12 @@ function aktualisiereAnzeigen() {
   form.querySelector("[data-regelzahl]").textContent = `${entwurf.regeln.length} Regeln, davon ${aktive} aktiv`;
 
   const stand = form.closest("#ansicht").querySelector("[data-stand]");
-  const istStandard = logik.regelsaetzeGleich(optionen.angewendet, optionen.standard);
-  const offen = !logik.regelsaetzeGleich(entwurf, optionen.angewendet);
+  const kennzeichen = optionen.kennzeichen();
   // replaceChildren würde false als Text „false“ einfügen; deshalb vorher filtern.
   stand.replaceChildren(...[
-    el("span", { class: istStandard ? "kennzeichen" : "kennzeichen kennzeichen-geaendert" },
-      istStandard ? "Angewendet: Standard-Regelsatz" : "Angewendet: geänderter Regelsatz"),
-    offen && el("span", { class: "kennzeichen kennzeichen-offen" }, "Nicht angewendete Änderungen"),
+    el("span", { class: kennzeichen.art === "standard" ? "kennzeichen" : `kennzeichen kennzeichen-${kennzeichen.art}` },
+      `Angewendet: ${kennzeichen.text}`),
+    hatOffeneAenderungen() && el("span", { class: "kennzeichen kennzeichen-offen" }, "Nicht angewendete Änderungen"),
   ].filter(Boolean));
 
   // Sprungnavigation zu den Regeln (seitenintern, ohne Hash-Änderung).

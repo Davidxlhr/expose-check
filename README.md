@@ -20,9 +20,13 @@ Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
   ändern; Regeln entfernen; neue Regeln der Typen Pflichtfeld und Anzahl hinzufügen; Katalogeinträge pflegen.
   Eingaben werden mit der Constraint Validation des Browsers und eigenen deutschen Meldungen geprüft.
   Die Vorschau zeigt sofort, wie sich eine Änderung auswirkt; „Prüfen und anwenden“ übernimmt sie.
-  „Auf Standard zurücksetzen“ lädt `regeln.json` neu.
+- **Export und Import:** Der angewendete Regelsatz lässt sich als JSON-Datei herunterladen (`regeln-JJJJ-MM-TT.json`)
+  und später wieder importieren, z. B. als Sicherung oder für ein anderes Semester. Eine Importdatei (höchstens
+  200 KB) wird vollständig geprüft; bei Fehlern bleibt der bisherige Regelsatz unverändert und die Fehler werden
+  mit ihrer Stelle angezeigt. „Auf Standard zurücksetzen“ lädt `regeln.json` neu.
 - **Fehlerfälle:** Fehlende oder ungültige JSON-Dateien und ein fehlerhafter Regelsatz führen zu einer
-  verständlichen Meldung statt zu einer leeren Seite.
+  verständlichen Meldung statt zu einer leeren Seite. Ist `regeln.json` nicht ladbar, kann ein Regelsatz aus
+  einer Datei importiert werden.
 
 ## Aufbau
 
@@ -38,6 +42,7 @@ js/werte.js        Pfade und Formatierung
 js/ansichten.js    Übersicht, Detailansicht, SVG-Grafik
 js/editor.js       Regel-Editor (Formular, Validierung, Fehlerübersicht, Hinzufügen/Entfernen)
 js/editorlogik.js  Logik des Editors ohne DOM (neue Regeln, IDs, Meldungen)
+js/speicher.js     Export und Import des Regelsatzes
 data/              regeln.json, exposes.json
 pdf/               synthetische Exposé-PDFs (nur Vorschau, der Inhalt wird nicht ausgewertet)
 ```
@@ -60,4 +65,7 @@ Browser voraus).
 stören die StackBlitz-Umgebung. Den Link dann in einem privaten Fenster öffnen; dort sind Erweiterungen
 standardmäßig deaktiviert. Am zuverlässigsten läuft StackBlitz in Chromium-basierten Browsern.
 
-> Projektstand: in Entwicklung – Export und Import des Regelsatzes folgen.
+Der Regelsatz wird nicht im Browser gespeichert: Nach dem Neuladen der Seite gilt wieder `regeln.json`.
+Eigene Regelsätze sichert man über den Export.
+
+> Projektstand: Kernfunktionen vollständig (Prüfung, Übersicht, Detailansicht, Regel-Editor, Export/Import).

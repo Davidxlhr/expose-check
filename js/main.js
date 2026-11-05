@@ -4,9 +4,10 @@
 
 import { pruefeAlle, verteilung } from "./auswertung.js";
 import * as ansichten from "./ansichten.js";
-import { zeigeEditor } from "./editor.js";
+import { aktualisiereEditor, zeigeEditor } from "./editor.js";
 import { regelsaetzeGleich } from "./editorlogik.js";
 import { ladeExposes, ladeRegelsatz } from "./laden.js";
+import { bindeImport, exportiere, importMeldung } from "./speicher.js";
 
 const ziel = document.querySelector("#ansicht");
 const statusmeldung = document.querySelector("#statusmeldung");
@@ -15,6 +16,7 @@ const zustand = {
   regelsatz: null,      // angewendeter Regelsatz (zu Beginn der Standard aus regeln.json)
   standard: null,       // Standard aus regeln.json, Vergleichsbasis für „Geändert“
   entwurf: null,        // nicht angewendeter Stand des Regel-Editors (bleibt beim Ansichtswechsel erhalten)
+  gesichert: null,      // zuletzt exportierter oder importierter Regelsatz (liegt also als Datei vor)
   exposeDatei: null,    // Inhalt von exposes.json
   pruefungen: null,     // Map exposeId → Prüfung
   anzahl: null,         // Anzahl Exposés je Gesamtstatus
@@ -71,7 +73,9 @@ function zeige(route, { fokus }) {
   const fehler = blockierendeFehler(route.ansicht);
   if (fehler.length > 0) {
     const titel = route.ansicht === "regeln" ? "Regeln bearbeiten" : "Übersicht";
-    ansichten.zeigeLadefehler(ziel, titel, fehler, starte);
+    // F-1: Ist regeln.json nicht ladbar, bietet die Meldung den Import einer Regelsatz-Datei an.
+    ansichten.zeigeLadefehler(ziel, titel, fehler, starte,
+      (platz) => bindeImport(platz, "import-ladefehler", { beiErfolg: beiImport, melde }));
     setzeTitel(titel);
   } else if (route.ansicht === "liste") {
     ansichten.zeigeUebersicht(ziel, { ...zustand, exposes: zustand.exposeDatei.exposes });
@@ -81,13 +85,15 @@ function zeige(route, { fokus }) {
   } else if (route.ansicht === "regeln") {
     zeigeEditor(ziel, {
       angewendet: zustand.regelsatz,
-      standard: zustand.standard,
       entwurf: zustand.entwurf,
+      kennzeichen,
       exposes: zustand.exposeDatei?.exposes ?? null, // F-2: Editor bleibt ohne Exposés nutzbar
       melde,
       beiAenderung: (entwurf) => { zustand.entwurf = entwurf; },
       beiAnwenden,
       beiZuruecksetzen,
+      beiExport,
+      beiImport,
     });
     setzeTitel("Regeln bearbeiten");
   } else {
@@ -129,11 +135,21 @@ function zeigeDetail(id) {
   setzeTitel(`${expose.id}: ${expose.titel}`);
 }
 
-// ---------- Regel-Editor: Anwenden und Zurücksetzen ----------
+// ---------- Regel-Editor: Anwenden, Zurücksetzen, Export, Import ----------
+
+// Kennzeichen des angewendeten Regelsatzes für Kopf und Editor (Konzept 6.2, 7.1).
+function kennzeichen() {
+  const { regelsatz, standard, gesichert } = zustand;
+  if (standard && regelsaetzeGleich(regelsatz, standard)) return { text: "Standard", art: "standard" };
+  if (gesichert && regelsaetzeGleich(regelsatz, gesichert)) {
+    // Ohne Standard (regeln.json nicht ladbar, F-1) gibt es nichts, wogegen „geändert“ gälte.
+    return standard ? { text: "Geändert", art: "geaendert" } : { text: "Importiert", art: "geaendert" };
+  }
+  return { text: "Geändert – nicht exportiert", art: "offen" };
+}
 
 function rahmen() {
-  const geaendert = Boolean(zustand.regelsatz && zustand.standard) && !regelsaetzeGleich(zustand.regelsatz, zustand.standard);
-  ansichten.zeigeRahmen(zustand.regelsatz, zustand.exposeDatei, { geaendert });
+  ansichten.zeigeRahmen(zustand.regelsatz, zustand.exposeDatei, zustand.regelsatz ? kennzeichen() : null);
 }
 
 // „Prüfen und anwenden“ war erfolgreich: neuer Regelsatz, neue Auswertung, Kopfzeile (A-13).
@@ -169,6 +185,37 @@ async function beiZuruecksetzen() {
   // Der Editor wurde neu aufgebaut; der Fokus kehrt auf die Schaltfläche zurück, die die Aktion auslöste.
   ziel.querySelector('[data-aktion="zuruecksetzen"]')?.focus();
   melde("Auf Standard zurückgesetzt: regeln.json neu geladen, alle Änderungen verworfen.");
+}
+
+// Export (A-19): exportiert wird der angewendete Regelsatz. Ungültige Eingaben und nicht angewendete
+// Änderungen sind nicht enthalten; die Meldung sagt das ausdrücklich.
+function beiExport({ ungueltig, offen }) {
+  const dateiname = exportiere(zustand.regelsatz);
+  zustand.gesichert = structuredClone(zustand.regelsatz);
+  rahmen();
+  aktualisiereEditor();
+  const zusaetze = [];
+  if (ungueltig > 0) {
+    zusaetze.push(`${ungueltig === 1 ? "1 ungültige Eingabe wurde" : `${ungueltig} ungültige Eingaben wurden`} nicht übernommen.`);
+  }
+  if (offen) zusaetze.push("Nicht angewendete Änderungen sind nicht enthalten.");
+  melde(`Exportiert als „${dateiname}“.${zusaetze.length > 0 ? ` ${zusaetze.join(" ")} Exportiert ist der zuletzt angewendete gültige Stand.` : ""}`);
+}
+
+// Import (A-20): Die Datei ist bereits vollständig geprüft. Der Regelsatz ersetzt den bisherigen,
+// ein nicht angewendeter Entwurf wird verworfen. Auch aus der Ladefehler-Meldung (F-1) erreichbar.
+function beiImport(regelsatz, dateiname) {
+  zustand.regelsatz = regelsatz;
+  zustand.gesichert = structuredClone(regelsatz);
+  zustand.entwurf = null;
+  zustand.fehler.regeln = null;
+  if (zustand.exposeDatei) neuAuswerten();
+  rahmen();
+  const route = leseRoute() ?? { ansicht: "liste" };
+  zeige(route, { fokus: false });
+  // Fokus: im Editor zurück auf die Dateiauswahl, sonst (Ladefehler-Meldung ist verschwunden) auf die Überschrift.
+  (ziel.querySelector("#import-datei") ?? ziel.querySelector("h1"))?.focus();
+  melde(importMeldung(regelsatz, dateiname));
 }
 
 // ---------- Ereignisse ----------
@@ -208,6 +255,7 @@ async function starte() {
 
   zustand.standard = zustand.regelsatz ? structuredClone(zustand.regelsatz) : null;
   zustand.entwurf = null;
+  zustand.gesichert = null;
   if (zustand.regelsatz && zustand.exposeDatei) neuAuswerten();
   rahmen();
   zeige(leseRoute() ?? { ansicht: "liste" }, { fokus: false });

@@ -104,13 +104,18 @@
     <div class="ansicht-kopf">
       <h1 tabindex="-1">Regeln bearbeiten</h1>
       <p class="einleitung">Änderungen erscheinen sofort in der Vorschau unten. Übernommen werden sie mit
-        „Prüfen und anwenden“, sobald alle Eingaben gültig sind.</p>
+        „Prüfen und anwenden“, sobald alle Eingaben gültig sind. Export, Import und Zurücksetzen stehen unter
+        <a href="#verwaltung-titel" data-sprung="verwaltung-titel">Regelsatz verwalten</a>.</p>
       <p class="editor-stand" data-stand></p>
     </div>
     <div class="editor-raster">
-    <nav class="regel-nav" aria-labelledby="regel-nav-titel">
-      <h2 id="regel-nav-titel" class="regel-nav-titel">Zu einer Regel springen</h2>
-      <ol data-regel-nav></ol>
+    <!-- Sprungnavigation als <details>: geschlossen nur ein Tab-Stopp vor dem Formular. Sie steht im DOM vor
+         dem Formular und auf breiten Bildschirmen links davon, Lese- und Fokusreihenfolge stimmen also überein. -->
+    <nav class="regel-nav" aria-label="Regeln im Editor">
+      <details class="regel-nav-klappe">
+        <summary>Zu einer Regel springen</summary>
+        <ol data-regel-nav></ol>
+      </details>
     </nav>
     <form id="regel-editor" class="editor" novalidate>
       <div class="fehleruebersicht" id="fehleruebersicht" tabindex="-1" aria-labelledby="fehleruebersicht-titel" hidden>
@@ -168,13 +173,28 @@
       </div>
     </form>
     </div>
-    <!-- Verwaltung des ganzen Regelsatzes getrennt vom Formular (Konzept 7.1). Export und Import (Schritt 3,
-         speicher.js) kommen in diesen Abschnitt. -->
+    <!-- Verwaltung des ganzen Regelsatzes getrennt vom Formular (Konzept 7.1): Export, Import, Zurücksetzen. -->
     <section class="block verwaltung" aria-labelledby="verwaltung-titel">
-      <h2 id="verwaltung-titel">Regelsatz verwalten</h2>
-      <p class="leise">Zurücksetzen lädt regeln.json neu und verwirft alle Änderungen, auch bereits angewendete.</p>
-      <div class="editor-aktionen">
-        <button type="button" class="knopf knopf-zweit" data-aktion="zuruecksetzen">Auf Standard zurücksetzen</button>
+      <h2 id="verwaltung-titel" tabindex="-1">Regelsatz verwalten</h2>
+      <div class="verwaltung-raster">
+        <div class="verwaltung-teil">
+          <h3>Exportieren</h3>
+          <p class="leise">Speichert den angewendeten Regelsatz als JSON-Datei, z. B. als Sicherung oder für ein
+            anderes Semester. Nicht angewendete Änderungen sind nicht enthalten.</p>
+          <div class="editor-aktionen">
+            <button type="button" class="knopf knopf-zweit" data-aktion="exportieren">Regelsatz exportieren</button>
+          </div>
+        </div>
+        <div class="verwaltung-teil" data-import-platz>
+          <h3>Importieren</h3>
+        </div>
+        <div class="verwaltung-teil">
+          <h3>Zurücksetzen</h3>
+          <p class="leise">Lädt regeln.json neu und verwirft alle Änderungen, auch bereits angewendete.</p>
+          <div class="editor-aktionen">
+            <button type="button" class="knopf knopf-zweit" data-aktion="zuruecksetzen">Auf Standard zurücksetzen</button>
+          </div>
+        </div>
       </div>
     </section>
   </template>
@@ -317,6 +337,18 @@
       <input type="text" data-feld="beschreibung" data-schranke="musterBeschreibung" autocomplete="off">
       <p class="hilfe" data-hilfe="beschreibung">Erscheint statt des Musters als „Soll“, z. B. „6 Ziffern“.</p>
       <p class="feldfehler" data-fehler="beschreibung" hidden></p>
+    </div>
+  </template>
+
+  <!-- Import einer Regelsatz-Datei (Konzept 7.6, A-20): im Editor und in der Ladefehler-Meldung (F-1).
+       Die Fehlerliste ist über aria-describedby mit der Dateiauswahl verknüpft. -->
+  <template id="vorlage-import">
+    <div class="import">
+      <label data-fuer="datei">Regelsatz-Datei (JSON) auswählen</label>
+      <input type="file" data-feld="datei" accept="application/json,.json">
+      <p class="hilfe" data-hilfe="datei">Höchstens 200 KB. Die Datei wird vollständig geprüft. Nur ein fehlerfreier
+        Regelsatz ersetzt den bisherigen; nicht angewendete Änderungen gehen dabei verloren.</p>
+      <div class="import-fehler" data-fehler="datei" hidden></div>
     </div>
   </template>
 

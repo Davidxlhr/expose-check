@@ -642,6 +642,7 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
 .kennzeichen-geaendert { border-color: var(--akzent); color: var(--akzent); background: var(--akzent-flaeche); }
 .kennzeichen-offen { border-color: var(--hinweis-symbol); color: var(--hinweis); background: var(--hinweis-flaeche); }
 .marke-geaendert { border-color: var(--akzent); color: var(--akzent); background: var(--akzent-flaeche); }
+.marke-offen { border-color: var(--hinweis-symbol); color: var(--hinweis); background: var(--hinweis-flaeche); }
 
 .editor-abschnitt { display: grid; gap: var(--a2); }
 .abschnitt-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--a1); }
@@ -704,13 +705,38 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
   top: var(--a2);
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
-  padding: var(--a2);
   border: 1px solid var(--rahmen);
   border-radius: var(--radius);
   background: var(--flaeche);
 }
-.regel-nav-titel { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-leise); margin-bottom: 0.5rem; }
-.regel-nav ol { list-style: none; display: grid; gap: 0.125rem; }
+/* <summary> ist die einzige Bedienfläche, solange die Liste geschlossen ist. */
+/* display: block statt flex: summary mit flex wurde in älteren Safari-Versionen nicht zuverlässig umgeschaltet. */
+.regel-nav summary {
+  display: block;
+  padding: 0.6875rem var(--a2);
+  line-height: 1.4;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  list-style: none;
+}
+.regel-nav summary::-webkit-details-marker { display: none; }
+.regel-nav summary::before {
+  content: "";
+  display: inline-block;
+  margin: 0 0.625rem 0.125rem 0.125rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex: none;
+}
+.regel-nav details[open] > summary::before { transform: rotate(45deg); }
+.regel-nav summary:hover { color: var(--akzent); }
+.regel-nav ol { list-style: none; display: grid; gap: 0.125rem; padding: 0 var(--a1) var(--a1); }
 .regel-nav a {
   display: block;
   padding: 0.3125rem 0.5rem;
@@ -858,7 +884,50 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--akzent); ou
 .vorschau-teil.status-hinweis .symbol { color: var(--hinweis-symbol); }
 .vorschau-vorher { font-weight: 400; color: var(--text-leise); }
 .editor-aktionen { display: flex; flex-wrap: wrap; gap: var(--a1); }
-.verwaltung { display: grid; gap: 0.75rem; margin-top: var(--a3); }
+.verwaltung { display: grid; gap: var(--a2); margin-top: var(--a3); }
+.verwaltung-raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--a2) var(--a3); }
+.verwaltung-teil { display: grid; gap: 0.625rem; align-content: start; }
+.verwaltung-teil h3 { font-size: 1rem; }
+
+/* Import (A-20) */
+.import { display: grid; gap: 0.375rem; }
+.import label { font-weight: 600; font-size: 0.9375rem; }
+input[type="file"] {
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0.375rem;
+  border: 1px dashed var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche-leise);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+input[type="file"]::file-selector-button {
+  min-height: 2rem;
+  margin-right: 0.75rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--akzent);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+  color: var(--akzent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.import-fehler {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem var(--a2);
+  border: 1px solid var(--verletzt);
+  border-left-width: 4px;
+  border-radius: var(--radius-klein);
+  background: color-mix(in srgb, var(--verletzt-flaeche) 60%, var(--flaeche));
+  font-size: 0.875rem;
+}
+.import-fehler-titel { font-weight: 650; color: var(--verletzt); }
+.meldung-import { display: grid; gap: 0.5rem; margin-top: 0.5rem; padding-top: var(--a2); border-top: 1px solid var(--rahmen); }
+.meldung-import h3 { font-size: 1rem; }
 
 /* Nur solange der Editor angezeigt wird: Platz für die klebende Leiste beim Scrollen zu fokussierten Feldern. */
 :root:has(.editor-leiste) { scroll-padding-bottom: calc(var(--leiste-hoehe, 6rem) + 1rem); }
@@ -952,8 +1021,8 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--akzent); ou
 }
 
 @media (max-width: 1100px) {
-  .editor-raster { grid-template-columns: minmax(0, 1fr); }
-  .regel-nav { display: none; }
+  .editor-raster { grid-template-columns: minmax(0, 1fr); gap: var(--a2); }
+  .regel-nav { position: static; max-height: none; }
 }
 
 @media (max-width: 900px) {

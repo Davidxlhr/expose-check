@@ -56,12 +56,12 @@ function ansichtKopf(titel, einleitung) {
 
 // ---------- Kopf und Fuß ----------
 
-// Kopf und Fuß; „geaendert“ = der angewendete Regelsatz weicht vom Standard aus regeln.json ab.
-export function zeigeRahmen(regelsatz, exposeDatei, { geaendert = false } = {}) {
+// Kopf und Fuß; kennzeichen = { text, art } aus main.js („Standard“, „Geändert“, „Geändert – nicht exportiert“).
+export function zeigeRahmen(regelsatz, exposeDatei, kennzeichen = null) {
   const info = document.querySelector("#regelsatz-info");
   if (regelsatz) {
     info.replaceChildren("Regelsatz:", el("strong", {}, regelsatz.name),
-      el("span", { class: geaendert ? "marke-kennzeichen marke-geaendert" : "marke-kennzeichen" }, geaendert ? "Geändert" : "Standard"));
+      el("span", { class: `marke-kennzeichen marke-${kennzeichen?.art ?? "standard"}` }, kennzeichen?.text ?? "Standard"));
     info.hidden = false;
     document.querySelector("#fuss-regelsatz").textContent =
       `Regelsatz „${regelsatz.name}“, Stand ${datumAnzeigen(regelsatz.stand)}. Quelle: ${regelsatz.quelle}.`;
@@ -98,7 +98,7 @@ export function zeigeLaden(ziel) {
 }
 
 // Meldungsbox für Ladefehler: was passiert ist, wo, was man tun kann (Konzept 6.6).
-function fehlerBox(fehler, beiErneutLaden) {
+function fehlerBox(fehler, beiErneutLaden, importAnbieten) {
   const titel = fehler.titel ?? "Beim Laden ist ein unerwarteter Fehler aufgetreten.";
   const liste = fehler.fehlerliste ?? [];
   const gezeigt = liste.slice(0, 10);
@@ -110,7 +110,17 @@ function fehlerBox(fehler, beiErneutLaden) {
       liste.length > 10 && el("li", {}, `… und ${liste.length - 10} weitere`)),
     el("p", {}, fehler.hilfe ?? "Bitte die Seite neu laden. Details stehen in der Browser-Konsole."),
     el("div", { class: "meldung-aktionen" },
-      beiErneutLaden && knopf("Erneut laden", beiErneutLaden)));
+      beiErneutLaden && knopf("Erneut laden", beiErneutLaden)),
+    importAnbieten && importBereich(importAnbieten));
+}
+
+// F-1: Ist regeln.json nicht ladbar, lässt sich ein Regelsatz aus einer Datei importieren.
+function importBereich(importAnbieten) {
+  const platz = el("div", { class: "meldung-import" },
+    el("h3", {}, "Oder: Regelsatz aus einer Datei importieren"),
+    el("p", { class: "leise" }, "Zum Beispiel eine früher exportierte Datei. Sie wird vor der Übernahme vollständig geprüft."));
+  importAnbieten(platz);
+  return platz;
 }
 
 function knopf(text, beiKlick, klasse = "knopf") {
@@ -119,9 +129,9 @@ function knopf(text, beiKlick, klasse = "knopf") {
   return k;
 }
 
-export function zeigeLadefehler(ziel, titel, fehlerListe, beiErneutLaden) {
+export function zeigeLadefehler(ziel, titel, fehlerListe, beiErneutLaden, importAnbieten = null) {
   ziel.replaceChildren(ansichtKopf(titel), ...fehlerListe.map((f, i) => {
-    const box = fehlerBox(f, i === 0 ? beiErneutLaden : null);
+    const box = fehlerBox(f, i === 0 ? beiErneutLaden : null, f.datei === "regeln.json" ? importAnbieten : null);
     if (i > 0) box.classList.add("abstand-oben");
     // IDs eindeutig halten, wenn beide Dateien fehlerhaft sind.
     box.setAttribute("aria-labelledby", `fehler-titel-${i}`);
