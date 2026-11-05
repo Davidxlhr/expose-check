@@ -3,7 +3,6 @@
 
 import { AMPEL_TEXT, GESAMTSTATUS, anzeigeMitKatalog, begruendung, ergebnisText, sortiereErgebnisse } from "./auswertung.js";
 import { ladePdf } from "./laden.js";
-import { REGELTYPEN } from "./regeltypen.js";
 import { anzahlText, datumAnzeigen, elementBezeichnung, istLeer, wertAmPfad, wertAnzeigen, zahlAnzeigen } from "./werte.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -57,10 +56,12 @@ function ansichtKopf(titel, einleitung) {
 
 // ---------- Kopf und Fuß ----------
 
-export function zeigeRahmen(regelsatz, exposeDatei) {
+// Kopf und Fuß; „geaendert“ = der angewendete Regelsatz weicht vom Standard aus regeln.json ab.
+export function zeigeRahmen(regelsatz, exposeDatei, { geaendert = false } = {}) {
   const info = document.querySelector("#regelsatz-info");
   if (regelsatz) {
-    info.replaceChildren("Regelsatz:", el("strong", {}, regelsatz.name), el("span", { class: "marke-kennzeichen" }, "Standard"));
+    info.replaceChildren("Regelsatz:", el("strong", {}, regelsatz.name),
+      el("span", { class: geaendert ? "marke-kennzeichen marke-geaendert" : "marke-kennzeichen" }, geaendert ? "Geändert" : "Standard"));
     info.hidden = false;
     document.querySelector("#fuss-regelsatz").textContent =
       `Regelsatz „${regelsatz.name}“, Stand ${datumAnzeigen(regelsatz.stand)}. Quelle: ${regelsatz.quelle}.`;
@@ -393,6 +394,18 @@ function blaetterLink(expose, richtung) {
     !links && symbol("pfeil-rechts"));
 }
 
+// Seiteninterner Sprung ohne Hash-Änderung (Konzept 6.2): Die Route #/expose/… bleibt erhalten.
+function sprungZurVorschau() {
+  const link = el("a", { href: "#vorschau-titel", class: "knopf-link" }, symbol("dokument"), "Zur PDF-Vorschau");
+  link.addEventListener("click", (ereignis) => {
+    ereignis.preventDefault();
+    const ziel = document.getElementById("vorschau-titel");
+    ziel.scrollIntoView({ block: "start" });
+    ziel.focus({ preventScroll: true });
+  });
+  return link;
+}
+
 function zaehlerText(zaehler) {
   return [
     anzahlText(zaehler.verletzt, "Verstoß", "Verstöße"),
@@ -411,6 +424,8 @@ export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, nae
       arbeitsform && el("span", {}, arbeitsform),
       typeof expose.eingang === "string" && el("span", {}, "Eingang ", el("time", { datetime: expose.eingang }, datumAnzeigen(expose.eingang)))),
     el("h1", { tabindex: "-1" }, expose.titel || "(ohne Titel)"),
+    // Auf schmalen Bildschirmen steht die Vorschau unter allen Ergebnissen; der Link führt direkt hin.
+    el("p", { class: "nur-schmal" }, sprungZurVorschau()),
     el("div", { class: `gesamtstatus status-${pruefung.gesamt}` },
       statusAnzeige(pruefung.gesamt, AMPEL_TEXT[pruefung.gesamt]),
       el("span", { class: "gesamtstatus-zahlen" }, zaehlerText(pruefung.zaehler))));
@@ -427,7 +442,7 @@ export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, nae
 
   const flaeche = el("div", { class: "vorschau-flaeche" });
   const vorschau = el("section", { class: "karte vorschau", "aria-labelledby": "vorschau-titel" },
-    el("div", { class: "karte-kopf" }, el("h2", { id: "vorschau-titel" }, "Vorschau")),
+    el("div", { class: "karte-kopf" }, el("h2", { id: "vorschau-titel", tabindex: "-1" }, "Vorschau")),
     el("div", { class: "karte-inhalt" },
       el("figure", { class: "vorschau-figur" },
         flaeche,
@@ -503,66 +518,4 @@ async function zeigePdfVorschau(flaeche, expose) {
     class: "vorschau-pdf", data: blobUrl, type: "application/pdf", "aria-label": `PDF-Vorschau: ${expose.titel}`,
   }, ersatz("Die PDF-Vorschau kann in diesem Browser nicht angezeigt werden.", null,
     el("a", { href: expose.pdf, target: "_blank", rel: "noopener" }, "PDF öffnen"))));
-}
-
-// ---------- Regeln (Lesesicht; der Regel-Editor ersetzt sie in Schritt 2) ----------
-
-function feldBezeichnung(regelsatz, pfad) {
-  const feld = regelsatz.felder.find((f) => f.pfad === pfad);
-  if (!feld) return pfad;
-  if (!pfad.includes("[]")) return feld.bezeichnung;
-  const liste = regelsatz.felder.find((f) => f.pfad === pfad.slice(0, pfad.indexOf("[]")));
-  return `${liste?.bezeichnung ?? ""} › ${feld.bezeichnung}`;
-}
-
-function parameterKurz(regel, regelsatz) {
-  const p = regel.parameter;
-  const feld = p.feld ? feldBezeichnung(regelsatz, p.feld) : null;
-  switch (regel.typ) {
-    case "anzahl": return `${feld} · ${p.min === p.max ? `genau ${p.min}` : `${p.min} bis ${p.max}`}`;
-    case "katalog": return `${feld} · gegen „${regelsatz.kataloge[p.katalog].bezeichnung}“`;
-    case "eindeutig": return feldBezeichnung(regelsatz, `${p.liste}[].${p.merkmal}`);
-    case "frist": return `${feld} · Stichtag ${datumAnzeigen(p.stichtag)}, Kulanz ${anzahlText(p.kulanzTage, "Tag", "Tage")}`;
-    case "umfang": return `${feld} · höchstens ${zahlAnzeigen(p.max)}`;
-    case "muster": return `${feld} · ${p.beschreibung}`;
-    default: return feld;
-  }
-}
-
-export function zeigeRegeln(ziel, regelsatz) {
-  const aktive = regelsatz.regeln.filter((r) => r.aktiv).length;
-  const zeilen = regelsatz.regeln.map((regel) => el("tr", { class: regel.aktiv ? null : "regel-aus" },
-    el("td", { class: "mono" }, regel.id),
-    el("th", { scope: "row" },
-      el("span", {}, regel.bezeichnung),
-      el("span", { class: "regel-typ" }, `${REGELTYPEN[regel.typ].bezeichnung} · ${parameterKurz(regel, regelsatz)}`),
-      regel.wenn && el("span", { class: "regel-typ" }, `Nur bei ${anzeigeMitKatalog(regelsatz, regel.wenn.feld, regel.wenn.gleich)}`)),
-    el("td", {}, statusAnzeige(regel.stufe, regel.stufe === "verletzt" ? "Verstoß" : "Hinweis")),
-    el("td", {}, regel.aktiv ? "ja" : el("span", { class: "aus-markierung" }, "nein")),
-    el("td", { class: "spalte-quelle" }, regel.quelle ?? "")));
-
-  const kataloge = Object.entries(regelsatz.kataloge).map(([id, katalog]) =>
-    el("section", { class: "karte", "aria-labelledby": `katalog-${id}` },
-      el("div", { class: "karte-kopf" }, el("h3", { id: `katalog-${id}` }, katalog.bezeichnung)),
-      el("div", { class: "karte-inhalt" },
-        el("ul", { class: "katalog-liste" }, katalog.werte.map((w) =>
-          el("li", {}, el("span", { class: "mono" }, String(w.wert)), el("span", {}, w.text)))))));
-
-  ziel.replaceChildren(
-    ansichtKopf("Regeln", `Regelsatz „${regelsatz.name}“, Stand ${datumAnzeigen(regelsatz.stand)}. ` +
-      `${regelsatz.regeln.length} Regeln, davon ${aktive} aktiv. Diese Ansicht zeigt den geladenen Regelsatz; ` +
-      "zum Bearbeiten kommt der Regel-Editor hinzu."),
-    el("div", { class: "tabelle-rahmen", role: "region", "aria-labelledby": "regeln-beschriftung" },
-      el("table", { class: "tabelle regel-tabelle" },
-        el("caption", { id: "regeln-beschriftung" }, `${regelsatz.regeln.length} Regeln, davon ${aktive} aktiv`),
-        el("thead", {}, el("tr", {},
-          el("th", { scope: "col", class: "spalte-id" }, "ID"),
-          el("th", { scope: "col" }, "Regel"),
-          el("th", { scope: "col" }, "Bei Nichterfüllung"),
-          el("th", { scope: "col" }, "Aktiv"),
-          el("th", { scope: "col", class: "spalte-quelle" }, "Quelle"))),
-        el("tbody", {}, zeilen))),
-    el("section", { class: "abstand-oben-gross", "aria-labelledby": "kataloge-titel" },
-      el("h2", { id: "kataloge-titel" }, "Kataloge"),
-      el("div", { class: "katalog-raster" }, kataloge)));
 }

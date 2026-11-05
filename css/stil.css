@@ -623,25 +623,245 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
 .vorschau-ersatz strong { color: var(--text); font-size: 1.0625rem; }
 .vorschau figcaption { margin-top: 0.625rem; font-size: 0.8125rem; color: var(--text-leise); }
 
-/* ---------- Regeln (Lesesicht; Regel-Editor folgt) ---------- */
+/* ---------- Regel-Editor (Konzept 7) ---------- */
 
-.regel-tabelle .spalte-id { width: 4.5rem; }
-.regel-tabelle .spalte-quelle { min-width: 16rem; }
-.regel-tabelle td.spalte-quelle { font-size: 0.875rem; color: var(--text-leise); }
-.regel-tabelle .regel-typ { display: block; font-size: 0.8125rem; color: var(--text-leise); }
-.regel-tabelle tr.regel-aus { color: var(--text-leise); }
-.aus-markierung { font-size: 0.8125rem; font-weight: 600; color: var(--inaktiv); }
-
-.katalog-raster {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-  gap: var(--a2);
-  align-items: start;
-  margin-top: var(--a3);
+.editor { display: grid; gap: var(--a3); }
+.editor-stand { display: flex; flex-wrap: wrap; gap: var(--a1); }
+.kennzeichen {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--rahmen-stark);
+  background: var(--flaeche);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-leise);
 }
-.katalog-liste { list-style: none; display: grid; gap: 0.375rem; font-size: 0.9375rem; }
-.katalog-liste li { display: grid; grid-template-columns: minmax(2rem, auto) minmax(0, 1fr); gap: 0.75rem; }
-.katalog-liste .mono { color: var(--text-leise); padding-top: 0.0625rem; }
+.kennzeichen-geaendert { border-color: var(--akzent); color: var(--akzent); background: var(--akzent-flaeche); }
+.kennzeichen-offen { border-color: var(--hinweis-symbol); color: var(--hinweis); background: var(--hinweis-flaeche); }
+.marke-geaendert { border-color: var(--akzent); color: var(--akzent); background: var(--akzent-flaeche); }
+
+.editor-abschnitt { display: grid; gap: var(--a2); }
+.abschnitt-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--a1); }
+.regel-liste, .katalog-bloecke { display: grid; gap: var(--a2); }
+
+/* Bausteine: fieldset als Karte, legend als Überschrift der Karte. */
+.block {
+  min-width: 0;
+  margin: 0;
+  padding: var(--a2) var(--a3) var(--a3);
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.block > legend {
+  float: left;              /* legt die legend in den Kartenkopf statt auf den Rahmen */
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  scroll-margin-top: var(--a3);
+}
+.block > legend + * { clear: both; }
+.regel.regel-aus { background: var(--flaeche-leise); }
+.regel.regel-aus > legend { color: var(--text-leise); }
+.regel.regel-aus > legend::after {
+  content: "inaktiv – wird nicht geprüft";
+  margin-left: 0.625rem;
+  padding: 0.0625rem 0.5rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: 0.125rem;
+}
+.regel-typ-zeile { font-size: 0.8125rem; color: var(--text-leise); margin-bottom: var(--a2); }
+.bedingung {
+  margin-top: var(--a2);
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--rahmen-stark);
+  background: var(--flaeche-leise);
+  font-size: 0.875rem;
+  color: var(--text-leise);
+}
+
+.felder-raster {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--a2) var(--a3);
+}
+.feldgruppe { display: grid; gap: 0.375rem; align-content: start; min-width: 0; }
+.feldgruppe.breit { grid-column: span 2; }
+.block > .feldgruppe { max-width: 40rem; }
+
+/* Editor mit Sprungnavigation: links die Regeln, rechts das Formular. */
+.editor-raster { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: var(--a3); align-items: start; }
+.regel-nav {
+  position: sticky;
+  top: var(--a2);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: var(--a2);
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.regel-nav-titel { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-leise); margin-bottom: 0.5rem; }
+.regel-nav ol { list-style: none; display: grid; gap: 0.125rem; }
+.regel-nav a {
+  display: block;
+  padding: 0.3125rem 0.5rem;
+  border-radius: var(--radius-klein);
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.regel-nav a:hover { background: var(--flaeche-leise); color: var(--akzent); }
+.regel-nav .mono { color: var(--text-leise); }
+.regel-nav .nav-aus a { color: var(--text-leise); }
+.block > .feldgruppe { margin-top: var(--a2); }
+
+.feldgruppe label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  scroll-margin-top: var(--a3); /* Sprunglink: Label bleibt mit etwas Abstand sichtbar */
+}
+.hilfe { font-size: 0.8125rem; color: var(--text-leise); }
+
+input[type="text"], input[type="number"], input[type="date"], select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+  color: var(--text);
+  font: inherit;
+}
+input.mono { font-family: var(--schrift-mono); font-size: 0.9375rem; }
+input[type="number"] { font-variant-numeric: tabular-nums; }
+input:hover, select:hover { border-color: var(--text-leise); }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--akzent); outline-offset: 1px; border-color: var(--akzent); }
+
+/* Fehlerzustand über aria-invalid: das Skript setzt Attribut und Meldung zur selben Zeit (Konzept 6.1). */
+[aria-invalid="true"] {
+  border-color: var(--verletzt);
+  box-shadow: inset 0 0 0 1px var(--verletzt);
+  background: color-mix(in srgb, var(--verletzt-flaeche) 60%, var(--flaeche));
+}
+.feldfehler {
+  display: flex;
+  gap: 0.375rem;
+  align-items: flex-start;
+  color: var(--verletzt);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.feldfehler .symbol { width: 1rem; height: 1rem; margin-top: 0.125rem; }
+
+/* Radiogruppe und Checkbox: native Elemente, Zielgröße 24 × 24 px (WCAG 2.5.8). */
+/* Untere Zeile einer Regel: Stufe, aktiv, Quelle, Entfernen. */
+.regel-unten {
+  display: grid;
+  grid-template-columns: auto auto minmax(12rem, 1fr) auto;
+  align-items: start;
+  gap: var(--a2) var(--a3);
+  margin-top: var(--a2);
+  padding-top: var(--a2);
+  border-top: 1px solid var(--rahmen);
+}
+
+.stufe { margin: 0; padding: 0; border: 0; min-width: 0; }
+.regel-unten .aktiv-schalter { margin-top: 1.75rem; }
+.regel-unten .knopf-entfernen { margin-top: 1.875rem; }
+.stufe legend { padding: 0; margin-bottom: 0.375rem; font-weight: 600; font-size: 0.9375rem; }
+.stufe .auswahl { display: inline-flex; margin-right: var(--a2); }
+.auswahl { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; }
+.auswahl input { width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--akzent); flex: none; }
+.auswahl label { font-weight: 500; cursor: pointer; }
+.aktiv-schalter label { font-weight: 600; }
+
+
+.knopf-klein {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+.knopf-klein:hover { border-color: var(--akzent); color: var(--akzent); }
+.knopf-entfernen:hover, .katalog-eintrag .knopf-klein:hover { border-color: var(--verletzt); color: var(--verletzt); }
+
+.regel-neu { background: var(--flaeche-leise); }
+.regel-neu-zeile { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--a2); }
+.regel-neu-zeile .feldgruppe { flex: 1 1 22rem; }
+.regel-neu-zeile .knopf { margin-top: 1.75rem; }
+
+/* Kataloge */
+.katalog-eintraege { list-style: none; display: grid; gap: 0.75rem; margin-bottom: var(--a2); }
+.katalog-eintrag {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+  gap: 0.375rem 0.75rem;
+  align-items: start;
+}
+.katalog-eintrag .feldgruppe { gap: 0.25rem; }
+.katalog-eintrag label { font-size: 0.8125rem; color: var(--text-leise); }
+.katalog-eintrag .knopf-klein { margin-top: 1.5rem; }
+.text-katalog .katalog-eintrag { grid-template-columns: 12rem minmax(0, 1fr) auto; }
+.katalog-block { max-width: 52rem; }
+
+/* Fehlerübersicht (Muster „Error summary“): erscheint nach fehlgeschlagenem „Prüfen und anwenden“. */
+.fehleruebersicht {
+  display: grid;
+  gap: 0.5rem;
+  padding: var(--a2) var(--a3);
+  border: 3px solid var(--verletzt);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.fehleruebersicht:focus-visible, .fehleruebersicht:focus { outline: 3px solid var(--akzent); outline-offset: 3px; }
+.fehleruebersicht-titel { font-size: 1.125rem; color: var(--verletzt); }
+.fehleruebersicht-liste { display: grid; gap: 0.25rem; padding-left: 1.25rem; }
+.fehleruebersicht-liste a { color: var(--verletzt); font-weight: 600; }
+
+/* Leiste mit Vorschau und Aktionen bleibt am unteren Rand sichtbar, solange das Formular im Bild ist. */
+.editor-leiste {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem var(--a3);
+  padding: 0.875rem var(--a3);
+  border: 1px solid var(--rahmen-stark);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--flaeche);
+  box-shadow: 0 -6px 16px -10px var(--scrollschatten);
+}
+.vorschau-ausgabe { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; font-size: 0.9375rem; }
+.vorschau-titel { font-weight: 650; }
+.vorschau-teil { display: inline-flex; align-items: center; gap: 0.375rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vorschau-teil.status-hinweis .symbol { color: var(--hinweis-symbol); }
+.vorschau-vorher { font-weight: 400; color: var(--text-leise); }
+.editor-aktionen { display: flex; flex-wrap: wrap; gap: var(--a1); }
+.verwaltung { display: grid; gap: 0.75rem; margin-top: var(--a3); }
+
+/* Nur solange der Editor angezeigt wird: Platz für die klebende Leiste beim Scrollen zu fokussierten Feldern. */
+:root:has(.editor-leiste) { scroll-padding-bottom: calc(var(--leiste-hoehe, 6rem) + 1rem); }
 
 /* ---------- Meldungen (Fehlerfälle, Konzept 6.6) ---------- */
 
@@ -727,6 +947,22 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
 
 /* ---------- Responsiv ---------- */
 
+@media (min-width: 1024px) {
+  .nur-schmal { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .editor-raster { grid-template-columns: minmax(0, 1fr); }
+  .regel-nav { display: none; }
+}
+
+@media (max-width: 900px) {
+  .felder-raster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .regel-unten { grid-template-columns: auto auto; }
+  .quelle-feld { grid-column: 1 / -1; }
+  .knopf-entfernen { justify-self: start; }
+}
+
 @media (max-width: 1023px) {
   .detail-raster { grid-template-columns: minmax(0, 1fr); }
   .vorschau { position: static; }
@@ -767,4 +1003,17 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
   .tabelle .spalte-status { width: auto; }
   .meldung { padding: var(--a2); }
   .knopf-link .knopf-text-lang { display: none; }
+  .block { padding: 0.75rem var(--a2) var(--a2); }
+  .felder-raster { grid-template-columns: minmax(0, 1fr); }
+  .feldgruppe.breit { grid-column: auto; }
+  .katalog-eintrag { grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: 0.25rem 0.5rem; }
+  .text-katalog .katalog-eintrag { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto; }
+  .katalog-eintrag .knopf-klein { padding: 0 0.625rem; }
+  .regel-unten { grid-template-columns: minmax(0, 1fr); gap: var(--a1); }
+  .regel-unten .aktiv-schalter, .regel-unten .knopf-entfernen { margin-top: 0; }
+  .quelle-feld { grid-column: auto; }
+  .editor-leiste { padding: 0.75rem var(--a2); margin-inline: calc(-1 * var(--a2)); border-radius: 0; border-inline: 0; }
+  .editor-leiste .knopf { width: 100%; }
+  .vorschau-ausgabe { font-size: 0.875rem; gap: 0.125rem 0.75rem; }
+  .regel-neu-zeile .knopf { margin-top: 0; }
 }

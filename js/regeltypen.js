@@ -137,6 +137,12 @@ function parameterFehler(parameter, erlaubt, pruefungen) {
   return fehler.map((f) => f.replace(/^\./, ""));
 }
 
+// Erlaubte Datentypen des geprüften Felds je Typ. Einzige Quelle für Schemaprüfung und Feld-Auswahl
+// im Regel-Editor (null = alle Felder). Konzept 7.5: „frist → nur datum“.
+const DATENTYPEN_ANZAHL = ["liste"];
+const DATENTYPEN_FRIST = ["datum"];
+const DATENTYPEN_UMFANG = ["zahl"];
+
 // ---------- die sieben Typen ----------
 
 export const REGELTYPEN = Object.freeze({
@@ -145,6 +151,13 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Eine Angabe muss vorhanden sein.",
     formular: "vorlage-pflichtfeld",
     hinzufuegbar: true, // Kern (A-14)
+    feldDatentypen: null,
+    // Standard für neue Regeln: das erste Feld ohne eigene Pflichtfeld-Regel.
+    standardParameter(regelsatz) {
+      const belegt = new Set(regelsatz.regeln.filter((r) => r.typ === "pflichtfeld").map((r) => r.parameter.feld));
+      const feld = regelsatz.felder.find((f) => !belegt.has(f.pfad)) ?? regelsatz.felder[0];
+      return { feld: feld.pfad };
+    },
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld"], (fehler) => {
         pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler);
@@ -164,9 +177,15 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Eine Liste muss zwischen Mindest- und Höchstzahl Einträge haben.",
     formular: "vorlage-anzahl",
     hinzufuegbar: true, // Kern (A-14)
+    feldDatentypen: DATENTYPEN_ANZAHL,
+    // Standard für neue Regeln: erste Liste, genau ein Eintrag.
+    standardParameter(regelsatz) {
+      const liste = regelsatz.felder.find((f) => f.datentyp === "liste");
+      return { feld: liste.pfad, min: 1, max: 1 };
+    },
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld", "min", "max"], (fehler) => {
-        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: ["liste"] });
+        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: DATENTYPEN_ANZAHL });
         pruefeZahl(parameter.min, "min", SCHRANKEN.anzahl, fehler);
         pruefeZahl(parameter.max, "max", SCHRANKEN.anzahl, fehler);
         if (Number.isInteger(parameter.min) && Number.isInteger(parameter.max) && parameter.min > parameter.max) {
@@ -190,6 +209,7 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Jeder Wert muss in einem Katalog stehen.",
     formular: "vorlage-katalog",
     hinzufuegbar: false, // Ausbau (A-34)
+    feldDatentypen: null,
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld", "katalog"], (fehler) => {
         pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler);
@@ -221,9 +241,10 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Ein Merkmal darf innerhalb einer Liste nicht doppelt vorkommen.",
     formular: "vorlage-eindeutig",
     hinzufuegbar: false, // Ausbau (A-34)
+    feldDatentypen: DATENTYPEN_ANZAHL, // gilt für die Liste; das Merkmal ist ein Unterfeld der Liste
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["liste", "merkmal"], (fehler) => {
-        const liste = pruefeFeldverweis(parameter.liste, "liste", regelsatz, fehler, { datentypen: ["liste"], ohneListe: true });
+        const liste = pruefeFeldverweis(parameter.liste, "liste", regelsatz, fehler, { datentypen: DATENTYPEN_ANZAHL, ohneListe: true });
         if (liste && typeof parameter.merkmal === "string") {
           pruefeFeldverweis(`${parameter.liste}[].${parameter.merkmal}`, "merkmal", regelsatz, fehler);
         } else if (typeof parameter.merkmal !== "string") {
@@ -277,9 +298,10 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Ein Datum darf einen Stichtag nicht überschreiten.",
     formular: "vorlage-frist",
     hinzufuegbar: false, // Ausbau (A-34)
+    feldDatentypen: DATENTYPEN_FRIST,
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld", "stichtag", "kulanzTage", "uhrzeit"], (fehler) => {
-        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: ["datum"] });
+        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: DATENTYPEN_FRIST });
         if (!istIsoDatum(parameter.stichtag)) fehler.push("stichtag: Datum im Format JJJJ-MM-TT erwartet");
         pruefeZahl(parameter.kulanzTage, "kulanzTage", SCHRANKEN.kulanzTage, fehler);
         if (parameter.uhrzeit !== undefined) fehler.push(`uhrzeit: ${ausbau("Eine Uhrzeit der Frist")} (A-36)`);
@@ -310,9 +332,10 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Ein Zahlenwert darf einen Höchstwert nicht überschreiten.",
     formular: "vorlage-umfang",
     hinzufuegbar: false, // Ausbau (A-34)
+    feldDatentypen: DATENTYPEN_UMFANG,
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld", "max", "messung", "toleranzProzent"], (fehler) => {
-        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: ["zahl"] });
+        pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler, { datentypen: DATENTYPEN_UMFANG });
         pruefeZahl(parameter.max, "max", SCHRANKEN.umfangMax, fehler);
         if (parameter.messung !== undefined && parameter.messung !== "wert") {
           fehler.push(`messung: ${ausbau(`Die Messung „${parameter.messung}“`)} (A-37); im Kern nur „wert“`);
@@ -337,6 +360,7 @@ export const REGELTYPEN = Object.freeze({
     beschreibung: "Ein Wert muss vollständig zu einem Muster passen.",
     formular: "vorlage-muster",
     hinzufuegbar: false, // Ausbau (A-34)
+    feldDatentypen: null,
     parameterTesten(parameter, regelsatz) {
       return parameterFehler(parameter, ["feld", "muster", "beschreibung"], (fehler) => {
         pruefeFeldverweis(parameter.feld, "feld", regelsatz, fehler);

@@ -62,7 +62,7 @@
     <nav class="hauptnavigation" aria-label="Hauptnavigation">
       <ul>
         <li><a href="#/liste" data-ansicht="liste">Übersicht</a></li>
-        <li><a href="#/regeln" data-ansicht="regeln">Regeln</a></li>
+        <li><a href="#/regeln" data-ansicht="regeln">Regeln bearbeiten</a></li>
       </ul>
     </nav>
   </header>
@@ -90,5 +90,260 @@
       <p>Die App zeigt Auffälligkeiten in den erfassten Angaben an. Bewertung und Entscheidung liegen beim Dozenten.</p>
     </div>
   </footer>
+  <!-- ===================== Regel-Editor: Bausteine (Konzept 7.1, 7.2) =====================
+       <template> ist inertes HTML: Die Struktur steht hier, editor.js klont sie per cloneNode und setzt
+       nur IDs, Werte und Schranken. Verknüpfungen innerhalb eines Bausteins über data-Attribute:
+         data-feld="x"    Eingabefeld, erhält die ID <präfix>-x (Präfix = Regel-ID, z. B. r16)
+         data-fuer="x"    <label> für dieses Feld (for wird gesetzt)
+         data-hilfe="x"   Hilfetext, data-fehler="x" Fehlermeldung (beide über aria-describedby verknüpft)
+         data-name="x"    Name des Werts in der Regel, falls abweichend von data-feld (Radiogruppen)
+         data-schranke="x" Schranke aus SCHRANKEN in schema.js (required, maxlength, min, max, step)
+         data-optionen="felder|listen|merkmale|kataloge" Auswahlliste, gefüllt aus felder/kataloge -->
+
+  <template id="vorlage-editor">
+    <div class="ansicht-kopf">
+      <h1 tabindex="-1">Regeln bearbeiten</h1>
+      <p class="einleitung">Änderungen erscheinen sofort in der Vorschau unten. Übernommen werden sie mit
+        „Prüfen und anwenden“, sobald alle Eingaben gültig sind.</p>
+      <p class="editor-stand" data-stand></p>
+    </div>
+    <div class="editor-raster">
+    <nav class="regel-nav" aria-labelledby="regel-nav-titel">
+      <h2 id="regel-nav-titel" class="regel-nav-titel">Zu einer Regel springen</h2>
+      <ol data-regel-nav></ol>
+    </nav>
+    <form id="regel-editor" class="editor" novalidate>
+      <div class="fehleruebersicht" id="fehleruebersicht" tabindex="-1" aria-labelledby="fehleruebersicht-titel" hidden>
+        <h2 id="fehleruebersicht-titel" class="fehleruebersicht-titel"></h2>
+        <p>Angewendet wird erst, wenn alle Eingaben gültig sind.</p>
+        <ul class="fehleruebersicht-liste"></ul>
+      </div>
+
+      <fieldset class="block" data-block="kopf" data-kennung="Regelsatz">
+        <legend>Regelsatz</legend>
+        <div class="felder-raster">
+          <div class="feldgruppe breit">
+            <label data-fuer="name">Name des Regelsatzes</label>
+            <input type="text" data-feld="name" data-schranke="regelsatzName" autocomplete="off">
+            <p class="feldfehler" data-fehler="name" hidden></p>
+          </div>
+          <div class="feldgruppe">
+            <label data-fuer="stand">Stand</label>
+            <input type="date" data-feld="stand" required>
+            <p class="feldfehler" data-fehler="stand" hidden></p>
+          </div>
+        </div>
+      </fieldset>
+
+      <section class="editor-abschnitt" aria-labelledby="editor-regeln-titel">
+        <div class="abschnitt-kopf">
+          <h2 id="editor-regeln-titel">Regeln</h2>
+          <p class="leise" data-regelzahl></p>
+        </div>
+        <div class="regel-liste" data-regel-liste></div>
+        <fieldset class="block regel-neu">
+          <legend>Regel hinzufügen</legend>
+          <div class="regel-neu-zeile">
+            <div class="feldgruppe">
+              <label for="neuer-regeltyp">Regeltyp</label>
+              <select id="neuer-regeltyp" aria-describedby="neuer-regeltyp-hilfe"></select>
+              <p class="hilfe" id="neuer-regeltyp-hilfe">Hinzufügen lassen sich Regeln der Typen Pflichtfeld und Anzahl.</p>
+            </div>
+            <button type="button" class="knopf knopf-zweit" data-aktion="regel-hinzufuegen">Regel hinzufügen</button>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="editor-abschnitt" aria-labelledby="editor-kataloge-titel">
+        <div class="abschnitt-kopf">
+          <h2 id="editor-kataloge-titel">Kataloge</h2>
+          <p class="leise">Wertelisten, gegen die Katalog-Regeln prüfen. Einträge lassen sich ergänzen und entfernen.</p>
+        </div>
+        <div class="katalog-bloecke" data-katalog-liste></div>
+      </section>
+
+      <div class="editor-leiste">
+        <output name="vorschau" id="editor-vorschau" class="vorschau-ausgabe"></output>
+        <button type="submit" class="knopf">Prüfen und anwenden</button>
+      </div>
+    </form>
+    </div>
+    <!-- Verwaltung des ganzen Regelsatzes getrennt vom Formular (Konzept 7.1). Export und Import (Schritt 3,
+         speicher.js) kommen in diesen Abschnitt. -->
+    <section class="block verwaltung" aria-labelledby="verwaltung-titel">
+      <h2 id="verwaltung-titel">Regelsatz verwalten</h2>
+      <p class="leise">Zurücksetzen lädt regeln.json neu und verwirft alle Änderungen, auch bereits angewendete.</p>
+      <div class="editor-aktionen">
+        <button type="button" class="knopf knopf-zweit" data-aktion="zuruecksetzen">Auf Standard zurücksetzen</button>
+      </div>
+    </section>
+  </template>
+
+  <!-- Hülle jeder Regel: gemeinsame Felder (Konzept 3.2, „Gemeinsame Formularteile“). -->
+  <template id="vorlage-regel">
+    <fieldset class="block regel" data-block="regel">
+      <legend><span data-regel-id-text></span> · <span data-legende-text></span></legend>
+      <p class="regel-typ-zeile" data-typ-text></p>
+      <div class="felder-raster">
+        <div class="feldgruppe breit">
+          <label data-fuer="bezeichnung">Bezeichnung</label>
+          <input type="text" data-feld="bezeichnung" data-schranke="bezeichnung" autocomplete="off">
+          <p class="feldfehler" data-fehler="bezeichnung" hidden></p>
+        </div>
+        <template data-parameter></template>
+      </div>
+      <div class="regel-unten">
+        <fieldset class="stufe">
+          <legend>Ergebnis bei Nichterfüllung</legend>
+          <div class="auswahl">
+            <input type="radio" data-feld="stufe-verletzt" data-name="stufe" value="verletzt">
+            <label data-fuer="stufe-verletzt">Verstoß</label>
+          </div>
+          <div class="auswahl">
+            <input type="radio" data-feld="stufe-hinweis" data-name="stufe" value="hinweis">
+            <label data-fuer="stufe-hinweis">Hinweis</label>
+          </div>
+        </fieldset>
+        <div class="auswahl aktiv-schalter">
+          <input type="checkbox" data-feld="aktiv">
+          <label data-fuer="aktiv">Regel aktiv</label>
+        </div>
+        <div class="feldgruppe quelle-feld">
+          <label data-fuer="quelle">Quelle (optional)</label>
+          <input type="text" data-feld="quelle" data-schranke="quelle" autocomplete="off">
+          <p class="feldfehler" data-fehler="quelle" hidden></p>
+        </div>
+        <button type="button" class="knopf-klein knopf-entfernen" data-aktion="regel-entfernen">Regel entfernen<span class="visuell-versteckt"> <span data-regel-id-text></span></span></button>
+      </div>
+      <p class="bedingung" data-bedingung hidden></p>
+    </fieldset>
+  </template>
+
+  <!-- Parameter je Regeltyp (Konzept 3.2, Spalte „Formular – Kern“). -->
+  <template id="vorlage-pflichtfeld">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Geprüfte Angabe</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+      <p class="hilfe" data-hilfe="feld">Die Angabe muss vorhanden und nicht leer sein. Bei Listen gilt das für jedes Mitglied.</p>
+    </div>
+  </template>
+
+  <template id="vorlage-anzahl">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Gezählte Liste</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="min">Mindestanzahl</label>
+      <input type="number" inputmode="numeric" data-feld="min" data-schranke="anzahl">
+      <p class="feldfehler" data-fehler="min" hidden></p>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="max">Höchstanzahl</label>
+      <input type="number" inputmode="numeric" data-feld="max" data-schranke="anzahl">
+      <p class="feldfehler" data-fehler="max" hidden></p>
+    </div>
+  </template>
+
+  <template id="vorlage-katalog">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Geprüfte Angabe</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="katalog">Katalog</label>
+      <select data-feld="katalog" data-optionen="kataloge"></select>
+      <p class="hilfe" data-hilfe="katalog">Einträge pflegen Sie unten unter „Kataloge“.</p>
+    </div>
+  </template>
+
+  <template id="vorlage-eindeutig">
+    <div class="feldgruppe">
+      <label data-fuer="liste">Liste</label>
+      <select data-feld="liste" data-optionen="listen"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="merkmal">Merkmal, das nicht doppelt vorkommen darf</label>
+      <select data-feld="merkmal" data-optionen="merkmale"></select>
+      <p class="hilfe" data-hilfe="merkmal">Die Auswahl richtet sich nach der gewählten Liste.</p>
+    </div>
+  </template>
+
+  <template id="vorlage-frist">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Geprüftes Datum</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="stichtag">Stichtag (einschließlich)</label>
+      <input type="date" data-feld="stichtag" required>
+      <p class="hilfe" data-hilfe="stichtag">Exposés mit Eingang an diesem Tag gelten als fristgerecht.</p>
+      <p class="feldfehler" data-fehler="stichtag" hidden></p>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="kulanzTage">Kulanz in Tagen</label>
+      <input type="number" inputmode="numeric" data-feld="kulanzTage" data-schranke="kulanzTage">
+      <p class="hilfe" data-hilfe="kulanzTage">Eingänge innerhalb der Kulanz ergeben einen Hinweis statt eines Verstoßes.</p>
+      <p class="feldfehler" data-fehler="kulanzTage" hidden></p>
+    </div>
+  </template>
+
+  <template id="vorlage-umfang">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Geprüfte Zahl</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="max">Höchstwert</label>
+      <input type="number" inputmode="decimal" data-feld="max" data-schranke="umfangMax">
+      <p class="hilfe" data-hilfe="max">Dezimalzahlen sind erlaubt, z. B. 0,5 für eine halbe Seite.</p>
+      <p class="feldfehler" data-fehler="max" hidden></p>
+    </div>
+  </template>
+
+  <template id="vorlage-muster">
+    <div class="feldgruppe">
+      <label data-fuer="feld">Geprüfte Angabe</label>
+      <select data-feld="feld" data-optionen="felder"></select>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="muster">Muster (regulärer Ausdruck)</label>
+      <input type="text" class="mono" data-feld="muster" data-schranke="muster" autocomplete="off" spellcheck="false">
+      <p class="hilfe" data-hilfe="muster">Der Wert muss vollständig passen, wie beim HTML-Attribut pattern.</p>
+      <p class="feldfehler" data-fehler="muster" hidden></p>
+    </div>
+    <div class="feldgruppe">
+      <label data-fuer="beschreibung">Beschreibung für die Begründung</label>
+      <input type="text" data-feld="beschreibung" data-schranke="musterBeschreibung" autocomplete="off">
+      <p class="hilfe" data-hilfe="beschreibung">Erscheint statt des Musters als „Soll“, z. B. „6 Ziffern“.</p>
+      <p class="feldfehler" data-fehler="beschreibung" hidden></p>
+    </div>
+  </template>
+
+  <!-- Kataloge: Block je Katalog und Zeile je Eintrag (Konzept 7.5). -->
+  <template id="vorlage-katalog-block">
+    <fieldset class="block katalog-block" data-block="katalog">
+      <legend data-katalog-name></legend>
+      <p class="regel-typ-zeile" data-katalog-info></p>
+      <ol class="katalog-eintraege" data-eintraege></ol>
+      <button type="button" class="knopf-klein" data-aktion="eintrag-hinzufuegen">Eintrag hinzufügen<span class="visuell-versteckt" data-katalog-zusatz></span></button>
+    </fieldset>
+  </template>
+
+  <template id="vorlage-katalogeintrag">
+    <li class="katalog-eintrag" data-eintrag>
+      <div class="feldgruppe eintrag-wert">
+        <label data-fuer="wert">Wert<span class="visuell-versteckt" data-eintrag-zusatz></span></label>
+        <input data-feld="wert" autocomplete="off">
+        <p class="feldfehler" data-fehler="wert" hidden></p>
+      </div>
+      <div class="feldgruppe eintrag-text">
+        <label data-fuer="text">Text<span class="visuell-versteckt" data-eintrag-zusatz></span></label>
+        <input type="text" data-feld="text" data-schranke="katalogText" autocomplete="off">
+        <p class="feldfehler" data-fehler="text" hidden></p>
+      </div>
+      <button type="button" class="knopf-klein" data-aktion="eintrag-entfernen">Entfernen<span class="visuell-versteckt" data-eintrag-zusatz></span></button>
+    </li>
+  </template>
 </body>
 </html>

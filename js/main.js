@@ -1,16 +1,20 @@
 // Start und Steuerung (Controller): Laden anstoßen, Zustand halten, Hash-Routing, Statusbereich.
 // Datenfluss in eine Richtung (Konzept 8): Daten laden → auswerten → Ansicht rendern.
-// Schritt 2 (Regel-Editor) ändert den Regelsatz und ruft danach neuAuswerten() auf.
+// Der Regel-Editor ändert einen Entwurf; „Prüfen und anwenden“ übernimmt ihn als Regelsatz und wertet neu aus.
 
 import { pruefeAlle, verteilung } from "./auswertung.js";
 import * as ansichten from "./ansichten.js";
+import { zeigeEditor } from "./editor.js";
+import { regelsaetzeGleich } from "./editorlogik.js";
 import { ladeExposes, ladeRegelsatz } from "./laden.js";
 
 const ziel = document.querySelector("#ansicht");
 const statusmeldung = document.querySelector("#statusmeldung");
 
 const zustand = {
-  regelsatz: null,      // geprüfter Regelsatz (Standard aus regeln.json)
+  regelsatz: null,      // angewendeter Regelsatz (zu Beginn der Standard aus regeln.json)
+  standard: null,       // Standard aus regeln.json, Vergleichsbasis für „Geändert“
+  entwurf: null,        // nicht angewendeter Stand des Regel-Editors (bleibt beim Ansichtswechsel erhalten)
   exposeDatei: null,    // Inhalt von exposes.json
   pruefungen: null,     // Map exposeId → Prüfung
   anzahl: null,         // Anzahl Exposés je Gesamtstatus
@@ -66,7 +70,7 @@ function zeige(route, { fokus }) {
 
   const fehler = blockierendeFehler(route.ansicht);
   if (fehler.length > 0) {
-    const titel = route.ansicht === "regeln" ? "Regeln" : "Übersicht";
+    const titel = route.ansicht === "regeln" ? "Regeln bearbeiten" : "Übersicht";
     ansichten.zeigeLadefehler(ziel, titel, fehler, starte);
     setzeTitel(titel);
   } else if (route.ansicht === "liste") {
@@ -75,8 +79,17 @@ function zeige(route, { fokus }) {
   } else if (route.ansicht === "detail") {
     zeigeDetail(route.id);
   } else if (route.ansicht === "regeln") {
-    ansichten.zeigeRegeln(ziel, zustand.regelsatz);
-    setzeTitel("Regeln");
+    zeigeEditor(ziel, {
+      angewendet: zustand.regelsatz,
+      standard: zustand.standard,
+      entwurf: zustand.entwurf,
+      exposes: zustand.exposeDatei?.exposes ?? null, // F-2: Editor bleibt ohne Exposés nutzbar
+      melde,
+      beiAenderung: (entwurf) => { zustand.entwurf = entwurf; },
+      beiAnwenden,
+      beiZuruecksetzen,
+    });
+    setzeTitel("Regeln bearbeiten");
   } else {
     ansichten.zeigeNichtGefunden(ziel, "Seite nicht gefunden", `Die Adresse „${location.hash}“ gibt es nicht.`);
     setzeTitel("Seite nicht gefunden");
@@ -116,6 +129,48 @@ function zeigeDetail(id) {
   setzeTitel(`${expose.id}: ${expose.titel}`);
 }
 
+// ---------- Regel-Editor: Anwenden und Zurücksetzen ----------
+
+function rahmen() {
+  const geaendert = Boolean(zustand.regelsatz && zustand.standard) && !regelsaetzeGleich(zustand.regelsatz, zustand.standard);
+  ansichten.zeigeRahmen(zustand.regelsatz, zustand.exposeDatei, { geaendert });
+}
+
+// „Prüfen und anwenden“ war erfolgreich: neuer Regelsatz, neue Auswertung, Kopfzeile (A-13).
+function beiAnwenden(regelsatz) {
+  zustand.regelsatz = regelsatz;
+  zustand.entwurf = null;
+  rahmen();
+  if (!zustand.exposeDatei) {
+    melde("Alle Regeln gültig und angewendet.");
+    return;
+  }
+  neuAuswerten();
+  const { verletzt, hinweis, ok } = zustand.anzahl;
+  melde(`Alle Regeln gültig und angewendet. Ergebnis: ${verletzt} mit Verstößen, ${hinweis} mit Hinweisen, ${ok} ohne Auffälligkeiten.`);
+}
+
+// „Auf Standard zurücksetzen“: regeln.json neu laden und alle Änderungen verwerfen (A-18).
+async function beiZuruecksetzen() {
+  let standard;
+  try {
+    standard = await ladeRegelsatz();
+  } catch (fehler) {
+    console.error(fehler);
+    melde(`Zurücksetzen nicht möglich: ${fehler.titel ?? fehler.message} Die Änderungen bleiben erhalten.`);
+    return;
+  }
+  zustand.standard = structuredClone(standard);
+  zustand.regelsatz = standard;
+  zustand.entwurf = null;
+  if (zustand.exposeDatei) neuAuswerten();
+  rahmen();
+  zeige({ ansicht: "regeln" }, { fokus: false });
+  // Der Editor wurde neu aufgebaut; der Fokus kehrt auf die Schaltfläche zurück, die die Aktion auslöste.
+  ziel.querySelector('[data-aktion="zuruecksetzen"]')?.focus();
+  melde("Auf Standard zurückgesetzt: regeln.json neu geladen, alle Änderungen verworfen.");
+}
+
 // ---------- Ereignisse ----------
 
 window.addEventListener("hashchange", () => {
@@ -151,8 +206,10 @@ async function starte() {
     if (ergebnis.status === "rejected") console.error(ergebnis.reason); // Details nur in der Konsole
   }
 
+  zustand.standard = zustand.regelsatz ? structuredClone(zustand.regelsatz) : null;
+  zustand.entwurf = null;
   if (zustand.regelsatz && zustand.exposeDatei) neuAuswerten();
-  ansichten.zeigeRahmen(zustand.regelsatz, zustand.exposeDatei);
+  rahmen();
   zeige(leseRoute() ?? { ansicht: "liste" }, { fokus: false });
 
   if (zustand.pruefungen) {

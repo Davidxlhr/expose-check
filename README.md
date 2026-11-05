@@ -2,12 +2,45 @@
 
 Prototyp eines konfigurierbaren Prüfassistenten für die formale Sichtung von Projekt-Exposés.
 Die Anwendung prüft Exposé-Angaben gegen anpassbare Regeln und zeigt das Ergebnis je Exposé als Ampelstatus mit Begründung.
+Sie zeigt Auffälligkeiten an. Bewertung und Entscheidung bleiben bei der Lehrperson.
 
 Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
 
-- Reines HTML, CSS und JavaScript – kein Backend, kein Build-Prozess
-- Regeln und Exposé-Daten liegen als JSON-Dateien vor und werden per `fetch` geladen
-- Alle Exposé-Daten sind synthetisch erzeugte Testdaten
+- Reines HTML, CSS und JavaScript (ES-Module) – kein Framework, kein Backend, kein Build-Prozess
+- Regeln (`data/regeln.json`) und Exposé-Angaben (`data/exposes.json`) werden per `fetch` geladen
+- Alle Exposé-Daten und PDFs sind synthetisch erzeugte Testdaten; alle Personen sind erfunden
+
+## Funktionen
+
+- **Übersicht:** Tabelle aller Exposés mit Gesamtstatus (Symbol, Text und Farbe), Filter nach Status und
+  eine SVG-Grafik der Statusverteilung.
+- **Detailansicht:** Ergebnis je Regel mit Begründung im Format „Soll: … · Ist: …“, Quelle der Vorgabe,
+  erfasste Angaben und PDF-Vorschau.
+- **Regel-Editor:** Bezeichnung, Ergebnis bei Nichterfüllung, aktiv/inaktiv und die Parameter jeder Regel
+  ändern; Regeln entfernen; neue Regeln der Typen Pflichtfeld und Anzahl hinzufügen; Katalogeinträge pflegen.
+  Eingaben werden mit der Constraint Validation des Browsers und eigenen deutschen Meldungen geprüft.
+  Die Vorschau zeigt sofort, wie sich eine Änderung auswirkt; „Prüfen und anwenden“ übernimmt sie.
+  „Auf Standard zurücksetzen“ lädt `regeln.json` neu.
+- **Fehlerfälle:** Fehlende oder ungültige JSON-Dateien und ein fehlerhafter Regelsatz führen zu einer
+  verständlichen Meldung statt zu einer leeren Seite.
+
+## Aufbau
+
+```
+index.html         Grundgerüst, Statusbereich, <template>-Bausteine des Regel-Editors
+css/stil.css       Gestaltung (hell/dunkel), Statusfarben und -symbole, Fokus, Fehlerzustand
+js/main.js         Start, Zustand, Hash-Routing (#/liste, #/expose/E-01, #/regeln)
+js/laden.js        Laden per fetch mit Fehlerbehandlung, PDF-Vorschau über eine Blob-URL
+js/schema.js       Schemaprüfung des Regelsatzes, Feldschranken (einzige Quelle für Prüfung und Formular)
+js/regeltypen.js   die sieben Regeltypen (pflichtfeld, anzahl, katalog, eindeutig, frist, umfang, muster)
+js/auswertung.js   Prüf-Engine: Bedingungen, Ergebnisse, Gesamtstatus
+js/werte.js        Pfade und Formatierung
+js/ansichten.js    Übersicht, Detailansicht, SVG-Grafik
+js/editor.js       Regel-Editor (Formular, Validierung, Fehlerübersicht, Hinzufügen/Entfernen)
+js/editorlogik.js  Logik des Editors ohne DOM (neue Regeln, IDs, Meldungen)
+data/              regeln.json, exposes.json
+pdf/               synthetische Exposé-PDFs (nur Vorschau, der Inhalt wird nicht ausgewertet)
+```
 
 ## Starten
 
@@ -20,8 +53,11 @@ Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
 Ein Öffnen der `index.html` per Doppelklick (`file://`) funktioniert nicht, weil Browser Module und
 `fetch` nur über HTTP laden.
 
+Unterstützt werden aktuelle Versionen von Chrome, Firefox und Safari (das Regex-Flag `v` setzt aktuelle
+Browser voraus).
+
 **Bleibt StackBlitz bei „Mounting environment“ hängen?** Manche Browser-Erweiterungen (z. B. Krypto-Wallets)
 stören die StackBlitz-Umgebung. Den Link dann in einem privaten Fenster öffnen; dort sind Erweiterungen
 standardmäßig deaktiviert. Am zuverlässigsten läuft StackBlitz in Chromium-basierten Browsern.
 
-> Projektstand: in Entwicklung
+> Projektstand: in Entwicklung – Export und Import des Regelsatzes folgen.
