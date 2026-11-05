@@ -3,39 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Exposé-Check (Spike)</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Exposé-Check</title>
+  <link rel="stylesheet" href="css/stil.css">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Exposé-Check</h1>
-    <p>Technischer Durchstich: JSON per fetch laden, PDF per object anzeigen.</p>
+  <!-- Statussymbole mit eigener Form (Konzept 6.1): Kreis mit Häkchen, Dreieck mit Ausrufezeichen,
+       Achteck mit Kreuz, Strich. Die Farbe kommt über currentColor, die Innenzeichnung über --symbol-innen.
+       Die Symbole sind immer aria-hidden; der Status steht zusätzlich als Text daneben. -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="symbol-ok" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="9" fill="currentColor"/>
+      <path d="M5.8 10.4l2.8 2.8 5.6-6" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--symbol-innen)"/>
+    </symbol>
+    <symbol id="symbol-hinweis" viewBox="0 0 20 20">
+      <path d="M10 1.9 19 17.7H1Z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M10 7.4v4.6" fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--symbol-innen)"/>
+      <circle cx="10" cy="15" r="1.25" style="fill: var(--symbol-innen)"/>
+    </symbol>
+    <symbol id="symbol-verletzt" viewBox="0 0 20 20">
+      <path d="M6.3 1.1h7.4l5.2 5.2v7.4l-5.2 5.2H6.3l-5.2-5.2V6.3Z" fill="currentColor"/>
+      <path d="M7 7l6 6M13 7l-6 6" fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--symbol-innen)"/>
+    </symbol>
+    <symbol id="symbol-inaktiv" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M5.8 10h8.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="symbol-dokument" viewBox="0 0 24 24">
+      <path d="M6 2.75h8.2L19.25 7.8v13.45H6Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 2.75V8h5.25M9 12.5h7M9 16h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="symbol-pfeil-links" viewBox="0 0 20 20">
+      <path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="symbol-pfeil-rechts" viewBox="0 0 20 20">
+      <path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </svg>
+
+  <a class="sprunglink" href="#inhalt">Zum Inhalt springen</a>
+
+  <header class="kopf">
+    <div class="kopf-innen">
+      <div class="marke">
+        <svg class="marke-zeichen" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect x="1" y="1" width="30" height="30" rx="8" fill="currentColor"/>
+          <path d="M9.5 9.5h9M9.5 14h13M9.5 18.5h6" fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--marke-innen)"/>
+          <path d="M17.5 22l2.6 2.6 4.9-5.6" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--marke-innen)"/>
+        </svg>
+        <div>
+          <p class="marke-titel">Exposé-Check</p>
+          <p class="marke-unterzeile">Formale Sichtung von Exposés</p>
+        </div>
+      </div>
+      <p class="regelsatz-info" id="regelsatz-info" hidden></p>
+    </div>
+    <nav class="hauptnavigation" aria-label="Hauptnavigation">
+      <ul>
+        <li><a href="#/liste" data-ansicht="liste">Übersicht</a></li>
+        <li><a href="#/regeln" data-ansicht="regeln">Regeln</a></li>
+      </ul>
+    </nav>
   </header>
 
-  <main>
-    <!-- Statischer Hinweis: Das Skript blendet ihn beim Start aus. Unter file:// blockiert der Browser
+  <!-- Dauerhaft vorhandener Statusbereich für Aktionsmeldungen (A-24, WCAG 4.1.3). -->
+  <div class="statusleiste">
+    <p role="status" id="statusmeldung" class="statusleiste-text"></p>
+  </div>
+
+  <main id="inhalt" class="inhalt" tabindex="-1">
+    <!-- Statischer Hinweis (F-8): Das Skript blendet ihn beim Start aus. Unter file:// blockiert der Browser
          das Modulskript, dann bleibt er stehen – eine Prüfung im Skript selbst käme nie zur Ausführung. -->
-    <p id="hinweis-webserver">
-      Bleibt dieser Hinweis stehen, bitte die Seite über einen Webserver öffnen (StackBlitz oder lokal),
-      nicht per Doppelklick als Datei.
-    </p>
-
-    <p role="status" id="statusmeldung">Daten werden geladen …</p>
-
-    <div id="fehler" role="alert"></div>
-
-    <section aria-labelledby="ueberschrift-daten">
-      <h2 id="ueberschrift-daten">Daten</h2>
-      <p id="anzahl-regeln"></p>
-      <ul id="expose-liste"></ul>
+    <section class="meldung meldung-fehler" id="hinweis-webserver" aria-labelledby="hinweis-webserver-titel">
+      <h1 id="hinweis-webserver-titel" class="meldung-titel">Die Anwendung startet nicht</h1>
+      <p>Bitte die Seite über StackBlitz oder einen lokalen Webserver öffnen, nicht per Doppelklick als Datei.
+        Browser laden per <code>fetch</code> keine lokalen Dateien.</p>
     </section>
-
-    <section aria-labelledby="ueberschrift-vorschau">
-      <h2 id="ueberschrift-vorschau">PDF-Vorschau</h2>
-      <div id="vorschau">
-        <p>Titel in der Liste wählen, um das Exposé anzuzeigen.</p>
-      </div>
-    </section>
+    <div id="ansicht"></div>
   </main>
+
+  <footer class="fuss">
+    <div class="fuss-innen">
+      <p id="fuss-herkunft"></p>
+      <p id="fuss-regelsatz"></p>
+      <p>Die App zeigt Auffälligkeiten in den erfassten Angaben an. Bewertung und Entscheidung liegen beim Dozenten.</p>
+    </div>
+  </footer>
 </body>
 </html>

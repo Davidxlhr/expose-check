@@ -1,189 +1,166 @@
-// Spike: Prüft, ob das Laden der JSON-Dateien per fetch und die PDF-Vorschau
-// per <object> funktionieren – lokal und auf StackBlitz. Noch keine Prüflogik.
+// Start und Steuerung (Controller): Laden anstoßen, Zustand halten, Hash-Routing, Statusbereich.
+// Datenfluss in eine Richtung (Konzept 8): Daten laden → auswerten → Ansicht rendern.
+// Schritt 2 (Regel-Editor) ändert den Regelsatz und ruft danach neuAuswerten() auf.
 
-const PFAD_REGELN = "data/regeln.json";
-const PFAD_EXPOSES = "data/exposes.json";
+import { pruefeAlle, verteilung } from "./auswertung.js";
+import * as ansichten from "./ansichten.js";
+import { ladeExposes, ladeRegelsatz } from "./laden.js";
 
+const ziel = document.querySelector("#ansicht");
 const statusmeldung = document.querySelector("#statusmeldung");
-const fehlerBereich = document.querySelector("#fehler");
-const anzahlRegeln = document.querySelector("#anzahl-regeln");
-const exposeListe = document.querySelector("#expose-liste");
-const vorschau = document.querySelector("#vorschau");
 
-// Liefert nur den Medientyp ohne Zusätze wie "; charset=utf-8".
-function medientyp(antwort) {
-  const typ = antwort.headers.get("Content-Type") ?? "";
-  return typ.split(";")[0].trim().toLowerCase();
+const zustand = {
+  regelsatz: null,      // geprüfter Regelsatz (Standard aus regeln.json)
+  exposeDatei: null,    // Inhalt von exposes.json
+  pruefungen: null,     // Map exposeId → Prüfung
+  anzahl: null,         // Anzahl Exposés je Gesamtstatus
+  fehler: { regeln: null, exposes: null },
+  filter: "alle",
+};
+
+// ---------- Statusbereich (A-24) ----------
+
+let meldungsTakt = null;
+// Schreibt eine Meldung in den dauerhaft vorhandenen Statusbereich, ohne den Fokus zu verschieben.
+// Erst leeren, dann kurz verzögert setzen, damit auch eine gleichlautende Meldung erneut angesagt wird.
+function melde(text) {
+  clearTimeout(meldungsTakt);
+  statusmeldung.textContent = "";
+  meldungsTakt = setTimeout(() => { statusmeldung.textContent = text; }, 60);
 }
 
-// Lädt eine JSON-Datei. Jeder Fehler wird zu einer verständlichen deutschen Meldung.
-async function ladeJson(pfad) {
-  let antwort;
-  try {
-    antwort = await fetch(pfad);
-  } catch (fehler) {
-    throw new Error(`${pfad} konnte nicht geladen werden (keine Verbindung zum Server).`, { cause: fehler });
-  }
-  if (!antwort.ok) {
-    throw new Error(`${pfad} konnte nicht geladen werden (HTTP ${antwort.status}).`);
-  }
-  // Schutz gegen einen Server, der statt der Datei eine HTML-Seite mit Status 200 liefert.
-  const typ = medientyp(antwort);
-  if (typ !== "application/json") {
-    throw new Error(`${pfad} wurde nicht als JSON geliefert, sondern als „${typ || "unbekannt"}“.`);
-  }
-  try {
-    return await antwort.json();
-  } catch (fehler) {
-    throw new Error(
-      `${pfad} ist keine gültige JSON-Datei. Häufige Ursachen: fehlendes Komma oder einfache statt doppelter Anführungszeichen.`,
-      { cause: fehler }
-    );
-  }
+// ---------- Auswertung ----------
+
+function neuAuswerten() {
+  zustand.pruefungen = pruefeAlle(zustand.exposeDatei.exposes, zustand.regelsatz);
+  zustand.anzahl = verteilung(zustand.pruefungen);
 }
 
-// Minimale Strukturprüfung (die echte Schemaprüfung folgt später): Liste unter `schluessel` vorhanden?
-function liste(daten, schluessel, pfad) {
-  if (!Array.isArray(daten?.[schluessel])) {
-    throw new Error(`${pfad} enthält keine Liste „${schluessel}“.`);
-  }
-  return daten[schluessel];
+// ---------- Routing: nur Hashes, die mit "#/" beginnen (Konzept 6.2) ----------
+
+function leseRoute() {
+  const hash = location.hash;
+  if (hash === "" || hash === "#") return { ansicht: "liste" };
+  if (!hash.startsWith("#/")) return null; // seiteninterne Sprungmarke, z. B. #inhalt
+  const [teil, kennung] = hash.slice(2).split("/");
+  if (teil === "" || teil === "liste") return { ansicht: "liste" };
+  if (teil === "expose" && kennung) return { ansicht: "detail", id: decodeURIComponent(kennung) };
+  if (teil === "regeln") return { ansicht: "regeln" };
+  return { ansicht: "unbekannt" };
 }
 
-// Zeigt eine Fehlermeldung auf der Seite; Details nur in der Konsole.
-function zeigeFehler(fehler) {
-  console.error(fehler);
-  const meldung = document.createElement("p");
-  meldung.textContent = `Fehler: ${fehler.message} Bitte die Datei prüfen und die Seite neu laden.`;
-  fehlerBereich.append(meldung);
+function setzeTitel(teil) {
+  document.title = teil ? `${teil} – Exposé-Check` : "Exposé-Check";
 }
 
-// Holt das PDF per fetch und liefert eine Blob-URL.
-// Warum nicht direkt <object data="pdf/…">? Auf StackBlitz liefert ein Service Worker die Dateien aus,
-// und Anfragen von <object>/<embed> gehen laut Service-Worker-Standard („Handle Fetch“) an ihm vorbei.
-// fetch läuft dagegen über den Service Worker; die Blob-URL braucht danach keine Netzanfrage mehr.
-async function ladePdf(pfad) {
-  let antwort;
-  try {
-    antwort = await fetch(pfad);
-  } catch (fehler) {
-    throw new Error("keine Verbindung zum Server", { cause: fehler });
-  }
-  if (!antwort.ok) {
-    throw new Error(`HTTP ${antwort.status}`);
-  }
-  // Schutz gegen einen Server, der statt des PDFs eine HTML-Seite mit Status 200 liefert.
-  const typ = medientyp(antwort);
-  if (typ !== "application/pdf") {
-    throw new Error(`geliefert als „${typ || "unbekannt"}“ statt PDF`);
-  }
-  return URL.createObjectURL(await antwort.blob());
+// Liefert die Ladefehler, die eine Ansicht verhindern.
+function blockierendeFehler(ansicht) {
+  const { regeln, exposes } = zustand.fehler;
+  if (ansicht === "regeln") return [regeln].filter(Boolean);
+  return [regeln, exposes].filter(Boolean);
 }
 
-// Blob-URL des gerade angezeigten PDFs; wird beim Wechsel freigegeben.
-let aktuelleBlobUrl = null;
-// Zählt die Klicks, damit eine langsame ältere Antwort keine neuere Vorschau überschreibt.
-let letzteAnfrage = 0;
+function zeige(route, { fokus }) {
+  ansichten.vorschauFreigeben();
+  ansichten.markiereNavigation(route.ansicht);
 
-function blobUrlFreigeben() {
-  if (aktuelleBlobUrl) {
-    URL.revokeObjectURL(aktuelleBlobUrl);
-    aktuelleBlobUrl = null;
+  const fehler = blockierendeFehler(route.ansicht);
+  if (fehler.length > 0) {
+    const titel = route.ansicht === "regeln" ? "Regeln" : "Übersicht";
+    ansichten.zeigeLadefehler(ziel, titel, fehler, starte);
+    setzeTitel(titel);
+  } else if (route.ansicht === "liste") {
+    ansichten.zeigeUebersicht(ziel, { ...zustand, exposes: zustand.exposeDatei.exposes });
+    setzeTitel("Übersicht");
+  } else if (route.ansicht === "detail") {
+    zeigeDetail(route.id);
+  } else if (route.ansicht === "regeln") {
+    ansichten.zeigeRegeln(ziel, zustand.regelsatz);
+    setzeTitel("Regeln");
+  } else {
+    ansichten.zeigeNichtGefunden(ziel, "Seite nicht gefunden", `Die Adresse „${location.hash}“ gibt es nicht.`);
+    setzeTitel("Seite nicht gefunden");
+  }
+
+  ansichten.aktualisiereScrollbereiche(ziel);
+
+  // Nach einem Ansichtswechsel den Fokus auf die Hauptüberschrift setzen (Fokusreihenfolge, A-17).
+  if (fokus) {
+    ziel.querySelector("h1")?.focus();
+    window.scrollTo(0, 0);
   }
 }
 
-// Link zum Öffnen des PDFs in einem neuen Tab (Pflicht-Fallback).
-function pdfLink(pfad) {
-  const link = document.createElement("a");
-  link.href = pfad;
-  link.target = "_blank";
-  link.textContent = "PDF öffnen";
-  return link;
-}
-
-async function zeigeVorschau(expose) {
-  const anfrage = ++letzteAnfrage;
-  blobUrlFreigeben();
-  const ueberschrift = document.createElement("h3");
-  ueberschrift.textContent = `${expose.id}: ${expose.titel}`;
-  vorschau.replaceChildren(ueberschrift);
-
-  if (!expose.pdf) {
-    const hinweis = document.createElement("p");
-    hinweis.textContent = `Kein PDF hinterlegt – eingereicht als ${String(expose.dateiformat ?? "unbekannt").toUpperCase()}.`;
-    vorschau.append(hinweis);
-    statusmeldung.textContent = `${expose.id}: kein PDF hinterlegt.`;
+function zeigeDetail(id) {
+  const exposes = zustand.exposeDatei.exposes;
+  const expose = exposes.find((e) => e.id === id);
+  if (!expose) {
+    // F-9: unbekannte Exposé-ID in der Route
+    ansichten.zeigeNichtGefunden(ziel, "Exposé nicht gefunden", `Exposé ${id} nicht gefunden.`);
+    setzeTitel("Exposé nicht gefunden");
     return;
   }
+  // Blättern in der Reihenfolge der Übersicht, mit dem aktuellen Filter, sofern das Exposé darin liegt.
+  const sortiert = ansichten.sortiereExposes(exposes, zustand.pruefungen);
+  const gefiltert = ansichten.filtereExposes(sortiert, zustand.pruefungen, zustand.filter);
+  const reihe = gefiltert.some((e) => e.id === id) ? gefiltert : sortiert;
+  const stelle = reihe.findIndex((e) => e.id === id);
 
-  let blobUrl;
-  try {
-    blobUrl = await ladePdf(expose.pdf);
-  } catch (fehler) {
-    if (anfrage !== letzteAnfrage) return; // inzwischen anderes Exposé gewählt
-    console.error(fehler);
-    const hinweis = document.createElement("p");
-    hinweis.append(`Das PDF konnte nicht geladen werden (${fehler.message}). `, pdfLink(expose.pdf));
-    vorschau.append(hinweis);
-    statusmeldung.textContent = `${expose.id}: PDF nicht abrufbar.`;
-    return;
-  }
-  if (anfrage !== letzteAnfrage) {
-    URL.revokeObjectURL(blobUrl); // Antwort kam zu spät, wird nicht mehr gebraucht
-    return;
-  }
-  aktuelleBlobUrl = blobUrl;
-
-  const objekt = document.createElement("object");
-  objekt.data = blobUrl;
-  objekt.type = "application/pdf";
-  objekt.width = "100%";
-  objekt.height = "600";
-  objekt.setAttribute("aria-label", `PDF-Vorschau: ${expose.titel}`);
-  // Fallback-Inhalt: erscheint nur, wenn der Browser das PDF nicht einbetten kann.
-  const fallback = document.createElement("p");
-  fallback.append("Die PDF-Vorschau kann in diesem Browser nicht angezeigt werden. ", pdfLink(expose.pdf));
-  objekt.append(fallback);
-  vorschau.append(objekt);
-  statusmeldung.textContent = `${expose.id}: PDF-Vorschau angezeigt.`;
+  ansichten.zeigeDetail(ziel, {
+    expose,
+    pruefung: zustand.pruefungen.get(id),
+    regelsatz: zustand.regelsatz,
+    vorheriges: reihe[stelle - 1] ?? null,
+    naechstes: reihe[stelle + 1] ?? null,
+  });
+  setzeTitel(`${expose.id}: ${expose.titel}`);
 }
 
-function zeigeListe(exposes) {
-  for (const expose of exposes) {
-    const knopf = document.createElement("button");
-    knopf.type = "button";
-    knopf.textContent = expose.titel;
-    knopf.addEventListener("click", () => zeigeVorschau(expose));
-    const eintrag = document.createElement("li");
-    eintrag.append(knopf);
-    exposeListe.append(eintrag);
-  }
-}
+// ---------- Ereignisse ----------
 
-async function start() {
-  // Das Skript läuft, also wurde die Seite über einen Webserver geöffnet.
+window.addEventListener("hashchange", () => {
+  const route = leseRoute();
+  if (route) zeige(route, { fokus: true });
+});
+
+// Filter der Übersicht: wirkt sofort, ohne Absenden-Knopf (A-10). Ereignisdelegation am Ansichtsbereich.
+ziel.addEventListener("change", (ereignis) => {
+  if (ereignis.target.name !== "filter") return;
+  zustand.filter = ereignis.target.value;
+  const { sichtbar, gesamt } = ansichten.wendeFilterAn(ziel, zustand.filter, zustand.anzahl);
+  melde(`${sichtbar} von ${gesamt} Exposés angezeigt.`);
+});
+
+window.addEventListener("resize", () => ansichten.aktualisiereScrollbereiche(ziel));
+
+// ---------- Start ----------
+
+async function starte() {
+  // Das Skript läuft, also wurde die Seite über einen Webserver geöffnet (F-8).
   document.querySelector("#hinweis-webserver").hidden = true;
+  melde("Regeln und Exposés werden geladen …");
+  ansichten.zeigeLaden(ziel);
 
-  // Beide Dateien parallel laden; ein Fehler in der einen verhindert die Anzeige der anderen nicht.
-  const [regeln, exposes] = await Promise.allSettled([
-    ladeJson(PFAD_REGELN).then((daten) => liste(daten, "regeln", PFAD_REGELN)),
-    ladeJson(PFAD_EXPOSES).then((daten) => liste(daten, "exposes", PFAD_EXPOSES)),
-  ]);
-
-  if (regeln.status === "fulfilled") {
-    anzahlRegeln.textContent = `Regelsatz geladen: ${regeln.value.length} Regeln.`;
-  } else {
-    zeigeFehler(regeln.reason);
+  // Beide Dateien parallel laden; ein Fehler in der einen verhindert nicht die Anzeige der anderen.
+  const [regeln, exposes] = await Promise.allSettled([ladeRegelsatz(), ladeExposes()]);
+  zustand.regelsatz = regeln.status === "fulfilled" ? regeln.value : null;
+  zustand.exposeDatei = exposes.status === "fulfilled" ? exposes.value : null;
+  zustand.fehler.regeln = regeln.status === "rejected" ? regeln.reason : null;
+  zustand.fehler.exposes = exposes.status === "rejected" ? exposes.reason : null;
+  for (const ergebnis of [regeln, exposes]) {
+    if (ergebnis.status === "rejected") console.error(ergebnis.reason); // Details nur in der Konsole
   }
 
-  if (exposes.status === "fulfilled") {
-    zeigeListe(exposes.value);
-  } else {
-    zeigeFehler(exposes.reason);
-  }
+  if (zustand.regelsatz && zustand.exposeDatei) neuAuswerten();
+  ansichten.zeigeRahmen(zustand.regelsatz, zustand.exposeDatei);
+  zeige(leseRoute() ?? { ansicht: "liste" }, { fokus: false });
 
-  const fehlerzahl = [regeln, exposes].filter((e) => e.status === "rejected").length;
-  statusmeldung.textContent = fehlerzahl === 0 ? "Daten geladen." : "Laden mit Fehlern beendet.";
+  if (zustand.pruefungen) {
+    const aktive = zustand.regelsatz.regeln.filter((r) => r.aktiv).length;
+    melde(`${zustand.exposeDatei.exposes.length} Exposés gegen ${aktive} aktive Regeln geprüft.`);
+  } else {
+    melde("Laden fehlgeschlagen. Details stehen in der Meldung auf der Seite.");
+  }
 }
 
-start();
+starte();

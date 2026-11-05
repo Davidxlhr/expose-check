@@ -1,0 +1,770 @@
+/* Exposé-Check – Gestaltung nach Konzept 6.1: ruhig, sachlich, werkzeughaft.
+   Eine Akzentfarbe (gedecktes Petrol), gedämpfte Statusfarben, System-Schrift, 8-px-Raster,
+   Karten mit dünnem Rahmen statt Schatten. Alle Farben als Variablen; Dunkelmodus über prefers-color-scheme.
+   Kontraste: Text ≥ 4,5:1, Symbole und Bedienelemente ≥ 3:1 (WCAG 1.4.3 / 1.4.11). */
+
+/* ---------- Farben und Maße ---------- */
+
+:root {
+  color-scheme: light dark;
+
+  --seite: #f3f4f6;
+  --flaeche: #ffffff;
+  --flaeche-leise: #f8f9fa;
+  --rahmen: #dde1e6;
+  --rahmen-stark: #b9c0c8;
+  --text: #1d232a;
+  --text-leise: #56606b;
+  --akzent: #0e6370;
+  --akzent-stark: #0a4a54;
+  --akzent-flaeche: #e5f1f2;
+  --auf-akzent: #ffffff;
+  --marke-innen: #ffffff;
+  --symbol-innen: #ffffff;
+
+  --ok: #2b7a4b;
+  --ok-flaeche: #e7f3eb;
+  --hinweis: #8f5d00;
+  --hinweis-symbol: #b07400;
+  --hinweis-flaeche: #fcf2dc;
+  --verletzt: #b42318;
+  --verletzt-flaeche: #fbebe9;
+  --inaktiv: #69727c;
+  --inaktiv-flaeche: #eef0f2;
+  --balken-spur: #e8ebee;
+  --scrollschatten: rgb(29 35 42 / 0.2);
+
+  --schrift: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --schrift-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --a1: 0.5rem;   /* 8 px */
+  --a2: 1rem;     /* 16 px */
+  --a3: 1.5rem;   /* 24 px */
+  --a4: 2rem;     /* 32 px */
+  --a6: 3rem;     /* 48 px */
+  --radius: 10px;
+  --radius-klein: 6px;
+  --breite: 82rem;
+  --lesebreite: 70ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --seite: #111417;
+    --flaeche: #181c20;
+    --flaeche-leise: #1d2227;
+    --rahmen: #2c333a;
+    --rahmen-stark: #46505a;
+    --text: #e5e8eb;
+    --text-leise: #a3acb5;
+    --akzent: #63bcc8;
+    --akzent-stark: #8fd2db;
+    --akzent-flaeche: #14363b;
+    --auf-akzent: #0b1a1d;
+    --marke-innen: #0f2528;
+    --symbol-innen: #111417;
+
+    --ok: #6cc591;
+    --ok-flaeche: #15291d;
+    --hinweis: #e5b65a;
+    --hinweis-symbol: #e5b65a;
+    --hinweis-flaeche: #2e2412;
+    --verletzt: #f39187;
+    --verletzt-flaeche: #34191a;
+    --inaktiv: #9aa3ac;
+    --inaktiv-flaeche: #23292f;
+    --balken-spur: #262c32;
+    --scrollschatten: rgb(0 0 0 / 0.6);
+  }
+}
+
+/* ---------- Grundlagen ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* hidden muss auch gegen display-Regeln der Komponenten gewinnen. */
+[hidden] { display: none !important; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--seite);
+  color: var(--text);
+  font-family: var(--schrift);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { line-height: 1.25; margin: 0; }
+h1 { font-size: 1.625rem; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 1.125rem; font-weight: 650; }
+h3 { font-size: 1rem; font-weight: 650; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; }
+
+a { color: var(--akzent); text-underline-offset: 0.15em; }
+a:hover { color: var(--akzent-stark); }
+
+code {
+  font-family: var(--schrift-mono);
+  font-size: 0.9em;
+  background: var(--flaeche-leise);
+  border: 1px solid var(--rahmen);
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+/* Sichtbarer Fokus (WCAG 2.4.7), nie outline: none ohne Ersatz. */
+:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+main:focus, h1:focus { outline: none; }
+h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.visuell-versteckt {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sprunglink {
+  position: absolute;
+  left: var(--a2);
+  top: -4rem;
+  z-index: 10;
+  padding: var(--a1) var(--a2);
+  background: var(--akzent);
+  color: var(--auf-akzent);
+  border-radius: var(--radius-klein);
+  font-weight: 600;
+}
+.sprunglink:focus { top: var(--a1); color: var(--auf-akzent); }
+
+.leise { color: var(--text-leise); }
+.mono { font-family: var(--schrift-mono); font-size: 0.875em; }
+.zahl { font-variant-numeric: tabular-nums; }
+
+/* ---------- Kopf, Navigation, Statusleiste ---------- */
+
+.kopf {
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--rahmen);
+}
+
+.kopf-innen,
+.hauptnavigation ul,
+.statusleiste-text,
+.inhalt,
+.fuss-innen {
+  width: 100%;
+  max-width: var(--breite);
+  margin-inline: auto;
+  padding-inline: var(--a2);
+}
+
+.kopf-innen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a1) var(--a3);
+  padding-block: var(--a2) var(--a1);
+}
+
+.marke { display: flex; align-items: center; gap: 0.75rem; }
+.marke-zeichen { width: 2.25rem; height: 2.25rem; color: var(--akzent); flex: none; }
+.marke-titel { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; }
+.marke-unterzeile { font-size: 0.8125rem; color: var(--text-leise); }
+
+.regelsatz-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-leise);
+}
+.regelsatz-info strong { color: var(--text); font-weight: 600; }
+
+.marke-kennzeichen {
+  display: inline-block;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--rahmen-stark);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-leise);
+}
+
+.hauptnavigation ul {
+  display: flex;
+  gap: var(--a1);
+  list-style: none;
+}
+.hauptnavigation a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-bottom: 3px solid transparent;
+  color: var(--text-leise);
+  font-weight: 600;
+  text-decoration: none;
+}
+.hauptnavigation a:hover { color: var(--text); }
+.hauptnavigation a[aria-current] {
+  color: var(--text);
+  border-bottom-color: var(--akzent);
+}
+
+.statusleiste-text {
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  gap: var(--a1);
+  font-size: 0.8125rem;
+  color: var(--text-leise);
+}
+.statusleiste-text:not(:empty)::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--akzent);
+  flex: none;
+}
+
+/* ---------- Inhalt und Karten ---------- */
+
+.inhalt {
+  flex: 1;
+  padding-block: var(--a1) var(--a6);
+}
+
+.ansicht-kopf {
+  display: grid;
+  gap: var(--a1);
+  margin-bottom: var(--a3);
+}
+.ansicht-kopf .einleitung { color: var(--text-leise); max-width: var(--lesebreite); }
+
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius);
+}
+.karte-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--a1);
+  padding: var(--a2) var(--a3) 0;
+}
+.karte-inhalt { padding: var(--a2) var(--a3) var(--a3); }
+
+/* ---------- Statusanzeige: Symbol + Text + Farbe (A-09) ---------- */
+
+.symbol { width: 1.125rem; height: 1.125rem; flex: none; }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-ok { color: var(--ok); }
+.status-hinweis { color: var(--hinweis); }
+.status-hinweis .symbol { color: var(--hinweis-symbol); }
+.status-verletzt { color: var(--verletzt); }
+.status-inaktiv { color: var(--inaktiv); }
+
+.status-plakette {
+  padding: 0.25rem 0.625rem 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+.status-plakette.status-ok { background: var(--ok-flaeche); }
+.status-plakette.status-hinweis { background: var(--hinweis-flaeche); }
+.status-plakette.status-verletzt { background: var(--verletzt-flaeche); }
+.status-plakette.status-inaktiv { background: var(--inaktiv-flaeche); }
+
+/* ---------- Übersicht ---------- */
+
+.uebersicht-raster {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--a2);
+  margin-bottom: var(--a3);
+}
+
+.grafik { margin: 0; }
+.grafik figcaption { font-size: 0.875rem; color: var(--text-leise); }
+.grafik-svg { display: block; width: 100%; overflow: visible; }
+.grafik-svg text { fill: var(--text); font-size: 0.9375rem; }
+.grafik-svg .grafik-zahl { font-weight: 700; font-variant-numeric: tabular-nums; }
+.grafik-svg .grafik-anteil { fill: var(--text-leise); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.grafik-svg .balken-spur { fill: var(--balken-spur); }
+.grafik-svg .balken-verletzt { fill: var(--verletzt); }
+.grafik-svg .balken-hinweis { fill: var(--hinweis-symbol); }
+.grafik-svg .balken-ok { fill: var(--ok); }
+.grafik-svg .zeichen-verletzt { color: var(--verletzt); }
+.grafik-svg .zeichen-hinweis { color: var(--hinweis-symbol); }
+.grafik-svg .zeichen-ok { color: var(--ok); }
+
+.legende { display: grid; gap: 0.75rem; }
+.legende-liste { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--a2) var(--a3); }
+.legende-liste li { display: grid; gap: 0.25rem; align-content: start; font-size: 0.875rem; }
+.legende-liste .leise { line-height: 1.4; }
+.uebersicht-raster > .karte { display: flex; flex-direction: column; }
+.karte-inhalt-fuellend { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: var(--a2); }
+.legende { flex: 1; align-content: space-between; }
+.karte-fussnote {
+  font-size: 0.8125rem;
+  color: var(--text-leise);
+  border-top: 1px solid var(--rahmen);
+  padding-top: 0.75rem;
+}
+
+/* Filter: native Radiobuttons, als Segmente gestaltet (A-10). Die Eingabe bleibt fokussierbar
+   und per Pfeiltasten bedienbar; der Fokusrahmen erscheint am Segment. */
+.filter {
+  border: 0;
+  margin: 0 0 var(--a2);
+  padding: 0;
+  min-width: 0;
+}
+.filter legend { font-weight: 650; margin-bottom: var(--a1); padding: 0; }
+.filter-optionen { display: flex; flex-wrap: wrap; gap: var(--a1); }
+.filter-option { position: relative; }
+.filter-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.filter-option label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: 999px;
+  background: var(--flaeche);
+  font-size: 0.9375rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+.filter-option label:hover { border-color: var(--akzent); }
+.filter-option input:checked + label {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: var(--auf-akzent);
+}
+.filter-option input:checked + label .symbol { color: var(--auf-akzent); --symbol-innen: var(--akzent); }
+.filter-option input:focus-visible + label { outline: 2px solid var(--akzent); outline-offset: 2px; }
+.filter-anzahl {
+  min-width: 1.5rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--flaeche-leise);
+  color: var(--text-leise);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.filter-option input:checked + label .filter-anzahl {
+  background: color-mix(in srgb, var(--auf-akzent) 20%, transparent);
+  color: var(--auf-akzent);
+}
+
+/* Tabelle: darf in ihrem Container waagrecht scrollen (A-33). */
+.tabelle-rahmen {
+  overflow-x: auto;
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius);
+  /* Schatten an den Rändern zeigen, dass die Tabelle seitlich weitergeht (nur sichtbar, wenn sie scrollt). */
+  background:
+    linear-gradient(to right, var(--flaeche) 40%, transparent) left / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--flaeche) 40%, transparent) right / 2.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scrollschatten), transparent) left / 0.875rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scrollschatten), transparent) right / 0.875rem 100% no-repeat scroll,
+    var(--flaeche);
+}
+.tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.tabelle caption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--a2) var(--a2) 0.75rem;
+  font-weight: 650;
+}
+.tabelle th, .tabelle td {
+  padding: 0.75rem var(--a2);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--rahmen);
+}
+.tabelle thead th {
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-leise);
+  background: var(--flaeche-leise);
+  white-space: nowrap;
+  padding-block: 0.625rem;
+}
+.tabelle tbody th { font-weight: 400; }
+.tabelle tbody tr:hover { background: var(--flaeche-leise); }
+.tabelle .spalte-status { width: 11.5rem; }
+.tabelle .spalte-titel { min-width: 15rem; }
+.tabelle .spalte-mitglieder { min-width: 11rem; }
+.tabelle .spalte-eingang { white-space: nowrap; }
+.tabelle .spalte-auffaellig { min-width: 9rem; }
+
+.titel-link { font-weight: 600; text-decoration: none; }
+.titel-link:hover { text-decoration: underline; }
+.zeilen-id { display: block; font-family: var(--schrift-mono); font-size: 0.75rem; color: var(--text-leise); }
+.mitglieder-liste { list-style: none; }
+.ohne-name { font-style: italic; color: var(--text-leise); }
+.uhrzeit { display: block; font-size: 0.8125rem; color: var(--text-leise); }
+.leer-zeile td { text-align: center; color: var(--text-leise); padding-block: var(--a4); }
+
+/* ---------- Detailansicht ---------- */
+
+.detail-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--a1);
+  margin-bottom: var(--a2);
+}
+.blaetter { display: flex; gap: var(--a1); }
+
+.knopf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.5rem;
+  padding: 0 0.75rem 0 0.5rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 550;
+  text-decoration: none;
+}
+.knopf-link:hover { border-color: var(--akzent); color: var(--akzent); }
+.knopf-link .symbol { width: 1rem; height: 1rem; }
+.knopf-link.rechts { padding: 0 0.5rem 0 0.75rem; }
+
+.detail-kopf {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: var(--a3);
+}
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-leise);
+}
+.detail-meta .mono { color: var(--text); }
+
+.gesamtstatus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.875rem var(--a2);
+  border-radius: var(--radius);
+  border: 1px solid var(--rahmen);
+  border-left-width: 5px;
+  background: var(--flaeche);
+}
+.gesamtstatus.status-verletzt { border-left-color: var(--verletzt); }
+.gesamtstatus.status-hinweis { border-left-color: var(--hinweis-symbol); }
+.gesamtstatus.status-ok { border-left-color: var(--ok); }
+.gesamtstatus .status { font-size: 1.125rem; }
+.gesamtstatus .symbol { width: 1.5rem; height: 1.5rem; }
+.gesamtstatus-zahlen { color: var(--text-leise); font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+
+.detail-raster {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--a3);
+  align-items: start;
+}
+.detail-spalte { display: grid; gap: var(--a3); min-width: 0; }
+
+.ergebnis-gruppe + .ergebnis-gruppe { margin-top: var(--a3); }
+.gruppen-titel {
+  margin-bottom: 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-leise);
+}
+
+.ergebnis-liste { list-style: none; display: grid; gap: var(--a1); }
+.ergebnis {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.25rem var(--a2);
+  padding: 0.75rem var(--a2);
+  border: 1px solid var(--rahmen);
+  border-left: 4px solid var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+}
+.ergebnis.status-rahmen-verletzt { border-left-color: var(--verletzt); background: color-mix(in srgb, var(--verletzt-flaeche) 55%, var(--flaeche)); }
+.ergebnis.status-rahmen-hinweis { border-left-color: var(--hinweis-symbol); background: color-mix(in srgb, var(--hinweis-flaeche) 55%, var(--flaeche)); }
+.ergebnis.status-rahmen-ok { border-left-color: var(--ok); }
+.ergebnis.status-rahmen-inaktiv { border-left-color: var(--rahmen-stark); background: var(--flaeche-leise); }
+.ergebnis-status { font-size: 0.875rem; padding-top: 0.0625rem; }
+
+/* Kompakte Liste für erfüllte und entfallende Regeln: eine Fläche mit Trennlinien statt Einzelkarten. */
+.ergebnis-liste.kompakt {
+  gap: 0;
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+}
+.ergebnis-liste.kompakt .ergebnis {
+  border: 0;
+  border-top: 1px solid var(--rahmen);
+  border-radius: 0;
+  background: transparent;
+  padding-block: 0.625rem;
+  gap: 0.125rem var(--a2);
+}
+.ergebnis-liste.kompakt .ergebnis:first-child { border-top: 0; }
+.ergebnis-liste.kompakt .begruendung { font-size: 0.9375rem; }
+.ergebnis-liste.kompakt .ergebnis-titel { font-weight: 550; }
+.ergebnis-text { display: grid; gap: 0.25rem; min-width: 0; }
+.ergebnis-titel { font-weight: 600; }
+.regel-id {
+  font-family: var(--schrift-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-leise);
+  margin-left: 0.375rem;
+  white-space: nowrap;
+}
+.begruendung { overflow-wrap: anywhere; }
+.begruendung b { font-weight: 600; }
+.quelle { font-size: 0.8125rem; color: var(--text-leise); overflow-wrap: anywhere; }
+
+.angaben { margin: 0; display: grid; grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr); }
+.angaben dt, .angaben dd {
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--rahmen);
+}
+.angaben dt { font-weight: 600; font-size: 0.875rem; padding-right: var(--a2); }
+.angaben dd { margin: 0; overflow-wrap: anywhere; max-width: var(--lesebreite); }
+.angaben dt:first-of-type, .angaben dt:first-of-type + dd { border-top: 0; padding-top: 0; }
+.nicht-angegeben { font-style: italic; color: var(--text-leise); }
+.person-liste { list-style: none; display: grid; gap: 0.5rem; }
+.person-name { font-weight: 600; }
+.person-angaben { display: block; font-size: 0.875rem; color: var(--text-leise); }
+
+.vorschau { position: sticky; top: var(--a2); }
+.vorschau-figur { margin: 0; }
+.vorschau-flaeche {
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche-leise);
+  overflow: hidden;
+}
+.vorschau-pdf {
+  display: block;
+  width: 100%;
+  height: min(78vh, 60rem);
+  min-height: 28rem;
+  border: 0;
+}
+.vorschau-ersatz {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  min-height: 22rem;
+  padding: var(--a4) var(--a3);
+  text-align: center;
+  color: var(--text-leise);
+}
+.vorschau-ersatz .dokument-symbol { width: 3rem; height: 3rem; color: var(--rahmen-stark); }
+.vorschau-ersatz strong { color: var(--text); font-size: 1.0625rem; }
+.vorschau figcaption { margin-top: 0.625rem; font-size: 0.8125rem; color: var(--text-leise); }
+
+/* ---------- Regeln (Lesesicht; Regel-Editor folgt) ---------- */
+
+.regel-tabelle .spalte-id { width: 4.5rem; }
+.regel-tabelle .spalte-quelle { min-width: 16rem; }
+.regel-tabelle td.spalte-quelle { font-size: 0.875rem; color: var(--text-leise); }
+.regel-tabelle .regel-typ { display: block; font-size: 0.8125rem; color: var(--text-leise); }
+.regel-tabelle tr.regel-aus { color: var(--text-leise); }
+.aus-markierung { font-size: 0.8125rem; font-weight: 600; color: var(--inaktiv); }
+
+.katalog-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--a2);
+  align-items: start;
+  margin-top: var(--a3);
+}
+.katalog-liste { list-style: none; display: grid; gap: 0.375rem; font-size: 0.9375rem; }
+.katalog-liste li { display: grid; grid-template-columns: minmax(2rem, auto) minmax(0, 1fr); gap: 0.75rem; }
+.katalog-liste .mono { color: var(--text-leise); padding-top: 0.0625rem; }
+
+/* ---------- Meldungen (Fehlerfälle, Konzept 6.6) ---------- */
+
+.meldung {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 52rem;
+  padding: var(--a3);
+  border: 1px solid var(--rahmen);
+  border-left: 5px solid var(--akzent);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.meldung-fehler { border-left-color: var(--verletzt); }
+.meldung-titel { display: flex; align-items: center; gap: 0.625rem; font-size: 1.25rem; }
+.meldung-titel .symbol { width: 1.5rem; height: 1.5rem; color: var(--verletzt); }
+.meldung p { max-width: var(--lesebreite); }
+.fehlerliste {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem var(--a2) 0.75rem 2rem;
+  background: var(--flaeche-leise);
+  border: 1px solid var(--rahmen);
+  border-radius: var(--radius-klein);
+  font-family: var(--schrift-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.meldung-aktionen { display: flex; flex-wrap: wrap; gap: var(--a1); }
+
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1.125rem;
+  border: 1px solid var(--akzent);
+  border-radius: var(--radius-klein);
+  background: var(--akzent);
+  color: var(--auf-akzent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.knopf:hover { background: var(--akzent-stark); border-color: var(--akzent-stark); color: var(--auf-akzent); }
+.knopf-zweit { background: var(--flaeche); color: var(--akzent); }
+.knopf-zweit:hover { background: var(--akzent-flaeche); color: var(--akzent-stark); }
+
+.abstand-oben { margin-top: var(--a2); }
+.abstand-oben-gross { margin-top: var(--a4); }
+.laden-mittig { justify-content: center; }
+.laden { display: flex; align-items: center; gap: 0.75rem; color: var(--text-leise); padding: var(--a4) 0; }
+.laden::before {
+  content: "";
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  border: 2px solid var(--rahmen-stark);
+  border-top-color: var(--akzent);
+  animation: drehen 0.9s linear infinite;
+}
+@keyframes drehen { to { transform: rotate(360deg); } }
+
+/* ---------- Fuß ---------- */
+
+.fuss {
+  border-top: 1px solid var(--rahmen);
+  background: var(--flaeche);
+  font-size: 0.8125rem;
+  color: var(--text-leise);
+}
+.fuss-innen { display: grid; gap: 0.25rem; padding-block: var(--a2) var(--a3); }
+.fuss p { max-width: 90ch; }
+
+/* ---------- Bewegung: nur kurze Übergänge, keine bei reduzierter Bewegung ---------- */
+
+.filter-option label, .knopf, .knopf-link, .hauptnavigation a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Responsiv ---------- */
+
+@media (max-width: 1023px) {
+  .detail-raster { grid-template-columns: minmax(0, 1fr); }
+  .vorschau { position: static; }
+  .vorschau-pdf { height: min(75vh, 44rem); min-height: 24rem; }
+}
+
+@media (max-width: 860px) {
+  .uebersicht-raster { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 640px) {
+  .kopf-innen, .hauptnavigation ul, .statusleiste-text, .inhalt, .fuss-innen { padding-inline: var(--a4); }
+}
+
+@media (max-width: 639px) {
+  h1 { font-size: 1.375rem; }
+  .karte-kopf { padding: var(--a2) var(--a2) 0; }
+  .karte-inhalt { padding: 0.75rem var(--a2) var(--a2); }
+  .marke-unterzeile { display: none; }
+  .hauptnavigation ul { gap: 0; }
+  .ergebnis { grid-template-columns: minmax(0, 1fr); gap: 0.375rem; }
+  .angaben { grid-template-columns: minmax(0, 1fr); }
+  .angaben dt { padding-bottom: 0; }
+  .angaben dd { border-top: 0; padding-top: 0.125rem; }
+  .angaben dt:first-of-type + dd { padding-top: 0.125rem; }
+  .legende-liste { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+  .legende-liste li { gap: 0.125rem; }
+  .regelsatz-info { flex-wrap: nowrap; min-width: 0; max-width: 100%; font-size: 0.75rem; }
+  .regelsatz-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .kopf-innen { padding-block: 0.75rem 0.25rem; }
+  .tabelle .spalte-titel { min-width: 11.5rem; }
+  /* Beschriftung bleibt beim seitlichen Scrollen der Tabelle im sichtbaren Bereich. */
+  .tabelle caption { position: sticky; left: 0; max-width: calc(100vw - 2rem - 2px); }
+  .tabelle td:first-child .status { white-space: normal; }
+  .tabelle td:first-child { width: 8rem; }
+  .filter-option label { min-height: 2.25rem; padding: 0 0.75rem; font-size: 0.875rem; }
+  .tabelle th, .tabelle td { padding-inline: 0.75rem; }
+  .tabelle .spalte-status { width: auto; }
+  .meldung { padding: var(--a2); }
+  .knopf-link .knopf-text-lang { display: none; }
+}
