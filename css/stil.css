@@ -379,7 +379,15 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
   color: var(--auf-akzent);
 }
 .filter-option input:checked + label .symbol { color: var(--auf-akzent); --symbol-innen: var(--akzent); }
-.filter-option input:focus-visible + label { outline: 2px solid var(--akzent); outline-offset: 2px; }
+/* Fokusrahmen am Segment (WCAG 2.4.7). Zwei Regeln, weil WebKit (Safari) ein per Pfeiltaste gewähltes Radio
+   nicht als :focus-visible markiert – Chromium und Firefox tun es. Gemessen (Playwright, je Engine):
+     Mausklick:  Chromium/Firefox  :focus ja, :focus-visible nein
+     Pfeiltaste: WebKit            :focus ja, :focus-visible nein   (Chromium/Firefox: beides ja)
+   Beide Fälle sehen für CSS gleich aus. Deshalb merkt main.js die letzte Eingabeart am <html>-Element
+   (data-eingabe="tastatur" bzw. "zeiger"), und bei Tastaturbedienung genügt :focus. So erscheint der Rahmen
+   bei Tastatur in allen drei Engines, bei Mausklick in keiner. Ohne Skript gilt nur die erste Regel. */
+.filter-option input:focus-visible + label,
+:root[data-eingabe="tastatur"] .filter-option input:focus + label { outline: 2px solid var(--akzent); outline-offset: 2px; }
 .filter-anzahl {
   min-width: 1.5rem;
   padding: 0 0.375rem;

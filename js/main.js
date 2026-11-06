@@ -250,6 +250,11 @@ ziel.addEventListener("change", (ereignis) => {
 
 window.addEventListener("resize", () => ansichten.aktualisiereScrollbereiche(ziel));
 
+// Letzte Eingabeart für den Fokusrahmen der Filter-Segmente (WebKit-Ausgleich, Begründung in stil.css
+// bei .filter-option). Erfasst in der Capture-Phase, also bevor der Fokus wechselt.
+document.addEventListener("keydown", () => { document.documentElement.dataset.eingabe = "tastatur"; }, true);
+document.addEventListener("pointerdown", () => { document.documentElement.dataset.eingabe = "zeiger"; }, true);
+
 // ---------- Start ----------
 
 // fokus: nach „Erneut laden“ – die auslösende Schaltfläche verschwindet, der Fokus geht auf die neue H1.
