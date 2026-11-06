@@ -2,13 +2,13 @@
 // Datenfluss in eine Richtung (Konzept 8): Daten laden → auswerten → Ansicht rendern.
 // Der Regel-Editor ändert einen Entwurf; „Prüfen und anwenden“ übernimmt ihn als Regelsatz und wertet neu aus.
 
-import { pruefeAlle, verteilung } from "./auswertung.js";
+import { katalogFuerFeld, pruefeAlle, rueckmeldungText, schwerpunktVerteilung, verteilung } from "./auswertung.js";
 import * as ansichten from "./ansichten.js";
 import { aktualisiereEditor, verlasseEditor, zeigeEditor } from "./editor.js";
 import { regelsaetzeGleich, verworfenMeldung } from "./editorlogik.js";
 import { ladeExposes, ladeRegelsatz } from "./laden.js";
 import { pruefeAngabenformat } from "./schema.js";
-import { bindeImport, exportiere, importMeldung } from "./speicher.js";
+import { bindeImport, exportiere, importMeldung, kopiereInZwischenablage } from "./speicher.js";
 
 const ziel = document.querySelector("#ansicht");
 const statusmeldung = document.querySelector("#statusmeldung");
@@ -20,6 +20,12 @@ const zustand = {
   entwurf: null,        // Arbeitsstand des Regel-Editors (nur gültige Werte); null = wie der angewendete Regelsatz
   hoechsteRegelNummer: 0, // höchste je vergebene Regelnummer, damit IDs nie wiederverwendet werden (K-1)
   datenhinweise: [],    // Angaben in exposes.json mit unerwartetem Format (S-1 b)
+  schwerpunkte: null,   // Verteilung der Theorieschwerpunkte (A-31)
+  // Bearbeitete Rückmeldungen je Exposé (A-30): exposeId → { text, vorlage }. „vorlage“ ist der erzeugte Text
+  // zum Zeitpunkt der Bearbeitung. Entscheidung: Bearbeitungen bleiben bis zum Neuladen der Seite erhalten,
+  // auch beim Wechsel des Exposés und nach „Prüfen und anwenden“ – sie gehen also nie beim bloßen Neuzeichnen
+  // verloren. Hat sich die Vorlage inzwischen geändert, sagt die Ansicht das (kein stilles Überschreiben).
+  rueckmeldungen: new Map(),
   ansicht: null,        // aktuelle Ansicht (für die Meldung beim Verlassen des Editors)
   gesichert: null,      // zuletzt exportierter oder importierter Regelsatz (liegt also als Datei vor)
   exposeDatei: null,    // Inhalt von exposes.json
@@ -47,6 +53,11 @@ function neuAuswerten() {
   zustand.anzahl = verteilung(zustand.pruefungen);
   // Das erwartete Format steht im Feldkatalog des Regelsatzes, deshalb wird es mit ihm geprüft.
   zustand.datenhinweise = pruefeAngabenformat(zustand.exposeDatei, zustand.regelsatz.felder);
+  // Katalog des Schwerpunktfelds aus dem angewendeten Regelsatz (Katalogänderungen wirken also mit).
+  const katalog = katalogFuerFeld(zustand.regelsatz, "mitglieder[].schwerpunkte") ?? zustand.regelsatz.kataloge.schwerpunkte;
+  zustand.schwerpunkte = katalog
+    ? schwerpunktVerteilung(zustand.exposeDatei.exposes, katalog, zustand.regelsatz.felder)
+    : null;
 }
 
 // ---------- Routing: nur Hashes, die mit "#/" beginnen (Konzept 6.2) ----------
@@ -131,12 +142,32 @@ function zeigeDetail(id) {
   const reihe = gefiltert.some((e) => e.id === id) ? gefiltert : sortiert;
   const stelle = reihe.findIndex((e) => e.id === id);
 
+  const pruefung = zustand.pruefungen.get(id);
+  const vorlage = rueckmeldungText(expose, pruefung, zustand.regelsatz);
+  const bearbeitet = zustand.rueckmeldungen.get(id);
   ansichten.zeigeDetail(ziel, {
     expose,
-    pruefung: zustand.pruefungen.get(id),
+    pruefung,
     regelsatz: zustand.regelsatz,
     vorheriges: reihe[stelle - 1] ?? null,
     naechstes: reihe[stelle + 1] ?? null,
+    rueckmeldung: { text: bearbeitet?.text ?? vorlage, vorlage, veraltet: Boolean(bearbeitet) && bearbeitet.vorlage !== vorlage },
+    rueckmeldungAktionen: {
+      beiEingabe: (text) => {
+        if (text === vorlage) zustand.rueckmeldungen.delete(id);
+        else zustand.rueckmeldungen.set(id, { text, vorlage });
+      },
+      beiNeuErzeugen: () => {
+        zustand.rueckmeldungen.delete(id);
+        melde("Rückmeldung aus den aktuellen Prüfergebnissen neu erzeugt.");
+      },
+      beiKopieren: async (text) => {
+        const ergebnis = await kopiereInZwischenablage(text);
+        melde(ergebnis.ok
+          ? "Rückmeldung in die Zwischenablage kopiert."
+          : `Kopieren nicht möglich. ${ergebnis.grund} Bitte den Text im Feld markieren (Strg+A bzw. Cmd+A) und mit Strg+C bzw. Cmd+C kopieren.`);
+      },
+    },
   });
   setzeTitel(`${expose.id}: ${expose.titel}`);
 }

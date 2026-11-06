@@ -24,6 +24,12 @@ Entstanden im Rahmen einer Seminararbeit im Modul Web Technologie (WS 2026).
   und später wieder importieren, z. B. als Sicherung oder für ein anderes Semester. Eine Importdatei (höchstens
   200 KB) wird vollständig geprüft; bei Fehlern bleibt der bisherige Regelsatz unverändert und die Fehler werden
   mit ihrer Stelle angezeigt. „Auf Standard zurücksetzen“ lädt `regeln.json` neu.
+- **Rückmeldung entwerfen:** In der Detailansicht steht ein bearbeitbarer Textvorschlag mit allen Verstößen und
+  Hinweisen des Exposés (nur Formales, keine inhaltliche Bewertung). Er lässt sich in die Zwischenablage kopieren;
+  eigene Änderungen bleiben bis zum Neuladen der Seite erhalten.
+- **Theorieschwerpunkte:** Eine SVG-Grafik in der Übersicht zeigt, wie viele Personen welchen Schwerpunkt
+  gewählt haben, mit allen Werten zusätzlich als Tabelle. Personen ohne, mit mehreren oder mit unbekanntem
+  Schwerpunkt werden darunter einzeln genannt.
 - **Fehlerfälle:** Fehlende oder ungültige JSON-Dateien und ein fehlerhafter Regelsatz führen zu einer
   verständlichen Meldung statt zu einer leeren Seite. Ist `regeln.json` nicht ladbar, kann ein Regelsatz aus
   einer Datei importiert werden.
@@ -68,4 +74,5 @@ standardmäßig deaktiviert. Am zuverlässigsten läuft StackBlitz in Chromium-b
 Der Regelsatz wird nicht im Browser gespeichert: Nach dem Neuladen der Seite gilt wieder `regeln.json`.
 Eigene Regelsätze sichert man über den Export.
 
-> Projektstand: Kernfunktionen vollständig (Prüfung, Übersicht, Detailansicht, Regel-Editor, Export/Import).
+> Projektstand: Kernfunktionen vollständig (Prüfung, Übersicht, Detailansicht, Regel-Editor, Export/Import),
+> dazu die Rückmeldungsvorlage und die Grafik der Theorieschwerpunkte.

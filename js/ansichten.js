@@ -199,6 +199,93 @@ function statusGrafik(anzahl, gesamt) {
   zeilen);
 }
 
+// ---------- Ausbaustufe A-31: Verteilung der Theorieschwerpunkte ----------
+
+// Bricht einen Text an Wortgrenzen in Zeilen von höchstens `max` Zeichen. SVG-Text bricht nicht selbst um;
+// feste Zeilen halten die Beschriftung auch bei 320 px Breite innerhalb der Grafik (Reflow, WCAG 1.4.10).
+export function umbrechen(text, max) {
+  const zeilen = [];
+  for (const wort of text.split(" ")) {
+    const letzte = zeilen.at(-1);
+    if (letzte !== undefined && `${letzte} ${wort}`.length <= max) zeilen[zeilen.length - 1] = `${letzte} ${wort}`;
+    else zeilen.push(wort);
+  }
+  return zeilen;
+}
+
+// Eigenständige SVG-Grafik: ein Balken je Katalogeintrag. Die Balken sind auf den größten Wert skaliert;
+// Nummer, Bezeichnung und Anzahl stehen als Text an jedem Balken, die Grafik braucht also keine Farbe zum Lesen.
+function schwerpunktGrafik(verteilung) {
+  const maximum = Math.max(1, ...verteilung.eintraege.map((e) => e.anzahl));
+  let y = 0;
+  const zeilen = verteilung.eintraege.map((eintrag) => {
+    // Nummer vor die erste Zeile setzen, statt sie mit umzubrechen (sonst stünde „7 –“ allein in einer Zeile).
+    const beschriftung = umbrechen(eintrag.text, 28);
+    beschriftung[0] = `${eintrag.wert} – ${beschriftung[0]}`;
+    const oben = y;
+    const balkenY = oben + beschriftung.length * 18 + 6;
+    y = balkenY + 10 + 18;
+    return svg("g", {},
+      svg("text", { x: 0, y: oben + 14 },
+        beschriftung.map((teil, i) => svg("tspan", { x: 0, dy: i === 0 ? 0 : 18 }, teil))),
+      svg("text", { x: "100%", y: oben + 14, "text-anchor": "end", class: "grafik-zahl" }, String(eintrag.anzahl)),
+      svg("rect", { class: "balken-spur", x: 0, y: balkenY, width: "100%", height: 10, rx: 5 }),
+      eintrag.anzahl > 0 && svg("rect", { class: "balken-schwerpunkt", x: 0, y: balkenY, width: `${(eintrag.anzahl / maximum) * 100}%`, height: 10, rx: 5 }));
+  });
+  const haeufigste = verteilung.eintraege.filter((e) => e.anzahl === maximum && maximum > 0).map((e) => e.wert);
+  return svg("svg", {
+    class: "grafik-svg", role: "img", width: "100%", height: y,
+    "aria-labelledby": "schwerpunkte-grafik-titel schwerpunkte-grafik-beschreibung",
+  },
+  svg("title", { id: "schwerpunkte-grafik-titel" }, "Personen je Theorieschwerpunkt"),
+  svg("desc", { id: "schwerpunkte-grafik-beschreibung" },
+    `${verteilung.personenGueltig} Personen mit gültigem Schwerpunkt auf ${verteilung.eintraege.length} Schwerpunkte verteilt; ` +
+    `am häufigsten: ${haeufigste.length > 0 ? `Nummer ${haeufigste.join(", ")} mit je ${maximum}` : "keiner"}. Alle Werte stehen in der Tabelle unter der Grafik.`),
+  zeilen);
+}
+
+function sonderfallText(verteilung) {
+  const { ohne, mehrere, unbekannt } = verteilung.sonderfaelle;
+  const liste = (faelle, art) => faelle.map((f) => `${f.person} (${f.expose}${f.werte.length ? `: ${f.werte.map(wertAnzeigen).join(", ")}` : ""}) ${art}`);
+  const teile = [...liste(ohne, "ohne Schwerpunkt"), ...liste(mehrere, "mit mehreren Schwerpunkten"), ...liste(unbekannt, "mit einem Schwerpunkt außerhalb des Katalogs")];
+  if (teile.length === 0) return "Alle Personen haben genau einen Schwerpunkt aus dem Katalog angegeben.";
+  return `Nicht im Diagramm: ${teile.join("; ")}.`;
+}
+
+// Textalternative: Die Grafik hat einen kurzen Namen und eine Zusammenfassung (role="img", title, desc).
+// Die vollständigen Werte stehen zusätzlich in einer echten Datentabelle in <details>. Entscheidung:
+// sichtbar aufklappbar statt visuell versteckt – so nützt die Tabelle auch Sehenden (genaue Zahlen,
+// Vergrößerung) und ist mit Tabellennavigation des Screenreaders lesbar.
+function schwerpunktAbschnitt(verteilung) {
+  const tabelle = el("table", { class: "tabelle tabelle-kompakt" },
+    el("caption", {}, "Personen je Theorieschwerpunkt"),
+    el("thead", {}, el("tr", {},
+      el("th", { scope: "col" }, "Nr."),
+      el("th", { scope: "col" }, "Theorieschwerpunkt"),
+      el("th", { scope: "col", class: "rechts" }, "Personen"))),
+    el("tbody", {}, verteilung.eintraege.map((e) => el("tr", {},
+      el("td", { class: "zahl" }, String(e.wert)),
+      el("th", { scope: "row" }, e.text),
+      el("td", { class: "zahl rechts" }, String(e.anzahl))))),
+    el("tfoot", {}, el("tr", {},
+      el("td", {}, ""),
+      el("th", { scope: "row" }, "Summe"),
+      el("td", { class: "zahl rechts" }, String(verteilung.personenGueltig)))));
+
+  return el("section", { class: "karte abstand-oben-gross", "aria-labelledby": "schwerpunkte-titel" },
+    el("div", { class: "karte-kopf" },
+      el("h2", { id: "schwerpunkte-titel" }, "Theorieschwerpunkte"),
+      el("span", { class: "leise zahl" }, `${verteilung.personenGueltig} von ${verteilung.personen} Personen`)),
+    el("div", { class: "karte-inhalt schwerpunkte" },
+      el("figure", { class: "grafik" },
+        schwerpunktGrafik(verteilung),
+        el("figcaption", {}, "Anzahl Personen je Schwerpunkt über alle Exposés. Gezählt wird, wer genau einen Schwerpunkt aus dem Katalog angegeben hat.")),
+      el("p", { class: "karte-fussnote" }, sonderfallText(verteilung)),
+      el("details", { class: "werte-klappe" },
+        el("summary", {}, "Werte als Tabelle"),
+        el("div", { class: "tabelle-rahmen" }, tabelle))));
+}
+
 function legende() {
   const eintraege = [
     ["verletzt", "Verstoß", "Eine Vorgabe ist nicht erfüllt."],
@@ -249,7 +336,7 @@ function datenhinweisBox(datenhinweise) {
       n > 10 && el("li", {}, `… und ${n - 10} weitere`)));
 }
 
-export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, filter, datenhinweise }) {
+export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, filter, datenhinweise, schwerpunkte }) {
   const sortiert = sortiereExposes(exposes, pruefungen);
   const aktive = regelsatz.regeln.filter((r) => r.aktiv).length;
 
@@ -308,6 +395,7 @@ export function zeigeUebersicht(ziel, { regelsatz, exposes, pruefungen, anzahl, 
     filterFeld,
     // Scrollbereich ist per Tastatur erreichbar und benannt, falls die Tabelle breiter als der Bildschirm ist.
     el("div", { class: "tabelle-rahmen", role: "region", "aria-labelledby": "tabelle-beschriftung" }, tabelle),
+    schwerpunkte && schwerpunktAbschnitt(schwerpunkte),
   ].filter(Boolean)); // replaceChildren fügt null sonst als Text „null“ ein
 
   return wendeFilterAn(ziel, filter, anzahl);
@@ -446,7 +534,42 @@ function zaehlerText(zaehler) {
   ].filter(Boolean).join(" · ");
 }
 
-export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, naechstes }) {
+// ---------- Ausbaustufe A-30: Rückmeldung entwerfen ----------
+
+// rueckmeldung = { text, vorlage, veraltet }; aktionen = { beiEingabe(text), beiNeuErzeugen(), beiKopieren(text) }.
+// Eigene Änderungen verwaltet main.js je Exposé; hier wird nur angezeigt und weitergemeldet.
+function rueckmeldungAbschnitt(rueckmeldung, aktionen) {
+  const feld = el("textarea", {
+    id: "rueckmeldung-text", name: "rueckmeldung", rows: 14, spellcheck: "true",
+    "aria-describedby": rueckmeldung.veraltet ? "rueckmeldung-hilfe rueckmeldung-veraltet" : "rueckmeldung-hilfe",
+  });
+  feld.value = rueckmeldung.text;
+  feld.addEventListener("input", () => aktionen.beiEingabe(feld.value));
+  const veraltet = rueckmeldung.veraltet && el("p", { class: "rueckmeldung-veraltet", id: "rueckmeldung-veraltet" },
+    symbol("hinweis"), el("span", {}, "Die Prüfergebnisse haben sich seit Ihrer Bearbeitung geändert. Ihr Text wurde beibehalten; „Vorlage neu erzeugen“ übernimmt den aktuellen Stand."));
+  const kopieren = el("button", { type: "button", class: "knopf" }, "In Zwischenablage kopieren");
+  // Der Fokus bleibt auf der Schaltfläche; Erfolg oder Fehlschlag meldet der Statusbereich (WCAG 4.1.3).
+  kopieren.addEventListener("click", () => aktionen.beiKopieren(feld.value));
+  const neu = el("button", { type: "button", class: "knopf knopf-zweit" }, "Vorlage neu erzeugen");
+  neu.addEventListener("click", () => {
+    feld.value = rueckmeldung.vorlage;
+    feld.setAttribute("aria-describedby", "rueckmeldung-hilfe");
+    feld.closest("section").querySelector(".rueckmeldung-veraltet")?.remove();
+    aktionen.beiNeuErzeugen();
+  });
+  return el("section", { class: "karte", "aria-labelledby": "rueckmeldung-titel" },
+    el("div", { class: "karte-kopf" }, el("h2", { id: "rueckmeldung-titel" }, "Rückmeldung entwerfen")),
+    el("div", { class: "karte-inhalt rueckmeldung" },
+      el("div", { class: "feldgruppe" },
+        el("label", { for: "rueckmeldung-text" }, "Text der Rückmeldung"),
+        feld,
+        el("p", { class: "hilfe", id: "rueckmeldung-hilfe" },
+          "Erzeugt aus den Verstößen und Hinweisen nach dem angewendeten Regelsatz. Sie können den Text vor dem Kopieren anpassen; Ihre Änderungen bleiben für dieses Exposé erhalten, bis die Seite neu geladen wird."),
+        veraltet),
+      el("div", { class: "editor-aktionen" }, kopieren, neu)));
+}
+
+export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, naechstes, rueckmeldung, rueckmeldungAktionen }) {
   const arbeitsform = istLeer(expose.arbeitsform) ? null : anzeigeMitKatalog(regelsatz, "arbeitsform", expose.arbeitsform);
 
   const kopf = el("div", { class: "detail-kopf" },
@@ -488,7 +611,7 @@ export function zeigeDetail(ziel, { expose, pruefung, regelsatz, vorheriges, nae
     el("article", { "aria-labelledby": "detail-titel" },
       kopf,
       el("div", { class: "detail-raster" },
-        el("div", { class: "detail-spalte" }, ergebnisse, angaben),
+        el("div", { class: "detail-spalte" }, ergebnisse, rueckmeldungAbschnitt(rueckmeldung, rueckmeldungAktionen), angaben),
         el("div", { class: "detail-spalte" }, vorschau))));
   kopf.querySelector("h1").id = "detail-titel";
 

@@ -327,6 +327,47 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
 .grafik-svg .zeichen-hinweis { color: var(--hinweis-symbol); }
 .grafik-svg .zeichen-ok { color: var(--ok); }
 
+/* Ausbaustufe A-31: Verteilung der Theorieschwerpunkte */
+.grafik-svg .balken-schwerpunkt { fill: var(--akzent); }
+.schwerpunkte { display: grid; gap: var(--a2); }
+/* Grid-Kinder haben min-width: auto; ein SVG mit width="100%" trägt dann seine Standardbreite von 300 px
+   als Mindestbreite bei und sprengt bei 320 px die Seite (Reflow). min-width: 0 hebt das auf. */
+.schwerpunkte > * { min-width: 0; max-width: 52rem; } /* kurze Wege zwischen Beschriftung und Zahl */
+.schwerpunkte figcaption { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--text-leise); }
+.werte-klappe summary {
+  display: inline-block;
+  padding: 0.5rem 0;
+  min-height: 2.5rem;
+  color: var(--akzent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.werte-klappe[open] summary { margin-bottom: var(--a1); }
+.tabelle-kompakt th, .tabelle-kompakt td { padding-block: 0.5rem; }
+.tabelle-kompakt tfoot th, .tabelle-kompakt tfoot td { font-weight: 650; }
+.tabelle .rechts { text-align: right; }
+
+/* Ausbaustufe A-30: Rückmeldung entwerfen */
+.rueckmeldung { display: grid; gap: var(--a2); }
+textarea {
+  width: 100%;
+  min-height: 12rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--rahmen-stark);
+  border-radius: var(--radius-klein);
+  background: var(--flaeche);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+textarea:hover { border-color: var(--text-leise); }
+textarea:focus-visible { outline: 2px solid var(--akzent); outline-offset: 1px; border-color: var(--akzent); }
+.rueckmeldung label { font-weight: 600; font-size: 0.9375rem; }
+.rueckmeldung-veraltet { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; color: var(--hinweis); }
+.rueckmeldung-veraltet .symbol { color: var(--hinweis-symbol); margin-top: 0.125rem; }
+
 .legende { display: grid; gap: 0.75rem; }
 .legende-liste { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--a2) var(--a3); }
 .legende-liste li { display: grid; gap: 0.25rem; align-content: start; font-size: 0.875rem; }
@@ -399,8 +440,10 @@ h1:focus-visible { outline: 2px solid var(--akzent); outline-offset: 4px; }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* Plakette im gewählten Segment: dunklere bzw. hellere Akzentstufe statt halbtransparentem Weiß.
+   Vorher lag Weiß auf aufgehelltem Petrol bei etwa 4,2:1 (axe-core: color-contrast) – unter 4,5:1. */
 .filter-option input:checked + label .filter-anzahl {
-  background: color-mix(in srgb, var(--auf-akzent) 20%, transparent);
+  background: var(--akzent-stark);
   color: var(--auf-akzent);
 }
 

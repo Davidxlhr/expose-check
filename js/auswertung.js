@@ -2,7 +2,7 @@
 // Bedingung "wenn", Gesamtstatus (Ampel), Begründungstexte. Reines Modul ohne DOM-Zugriff.
 
 import { GRUND_FORMAT, REGELTYPEN, inaktiv } from "./regeltypen.js";
-import { wertAmPfad, wertAnzeigen } from "./werte.js";
+import { elementBezeichnung, wertAmPfad, wertAnzeigen } from "./werte.js";
 
 // Gesamtstatus eines Exposés; Reihenfolge = Sortierung „schlechtestes zuerst“.
 export const GESAMTSTATUS = ["verletzt", "hinweis", "ok"];
@@ -115,4 +115,67 @@ export function sortiereErgebnisse(ergebnisse) {
     .map((e, i) => ({ e, i }))
     .sort((a, b) => ERGEBNIS_REIHENFOLGE[a.e.ergebnis] - ERGEBNIS_REIHENFOLGE[b.e.ergebnis] || a.i - b.i)
     .map(({ e }) => e);
+}
+
+// ---------- Ausbaustufe: Rückmeldungsvorlage (A-30) ----------
+
+// Text für eine Rückmeldung an die Einreichenden, erzeugt aus den Ergebnissen „verletzt“ und „hinweis“.
+// Bewusst neutral und ohne Bewertung des Inhalts (A-41): Die App benennt nur formale Auffälligkeiten.
+// Kein Name, keine Unterschrift – die Lehrperson ergänzt das selbst.
+export function rueckmeldungText(expose, pruefung, regelsatz) {
+  const regeln = new Map(regelsatz.regeln.map((r) => [r.id, r]));
+  // Die Bezeichnung nennt die Vorgabe („Problem ist angegeben“), deshalb in Anführungszeichen vor der Begründung.
+  const zeile = (e) => `- „${regeln.get(e.regelId)?.bezeichnung ?? e.regelId}“ – ${begruendung(e)}`;
+  const verstoesse = pruefung.ergebnisse.filter((e) => e.ergebnis === "verletzt").map(zeile);
+  const hinweise = pruefung.ergebnisse.filter((e) => e.ergebnis === "hinweis").map(zeile);
+  const bezug = `zu Ihrem Exposé „${expose.titel || "(ohne Titel)"}“ (${expose.id})`;
+
+  const teile = ["Guten Tag,", ""];
+  if (verstoesse.length === 0 && hinweise.length === 0) {
+    teile.push(`${bezug} wurden bei der formalen Sichtung keine Auffälligkeiten festgestellt.`);
+  } else {
+    teile.push(`${bezug} sind bei der formalen Sichtung folgende Punkte aufgefallen:`);
+    if (verstoesse.length > 0) teile.push("", "Abweichungen von den Vorgaben:", ...verstoesse);
+    if (hinweise.length > 0) teile.push("", "Hinweise:", ...hinweise);
+    teile.push("", "Bitte prüfen Sie diese Punkte. Die Sichtung betrifft nur formale Angaben, nicht den Inhalt.");
+  }
+  teile.push("", "Viele Grüße");
+  return teile.join("\n");
+}
+
+// ---------- Ausbaustufe: Verteilung der Theorieschwerpunkte (A-31) ----------
+
+// Zählt je Katalogeintrag die Personen über alle Exposés. Als „gültiger Schwerpunkt“ zählt – wie in den
+// Regeln R-11 (genau einer) und R-12 (aus dem Katalog) – genau ein Wert aus dem Katalog. Nur diese Personen
+// gehen in die Balken; damit gilt: Summe der Balken = Anzahl Personen mit gültigem Schwerpunkt (Konzept A-31).
+// Alle anderen werden getrennt benannt: ohne Angabe, mit mehreren Angaben, mit unbekanntem Wert.
+export function schwerpunktVerteilung(exposes, katalog, felder = [], pfad = "mitglieder[].schwerpunkte") {
+  const listenPfad = pfad.slice(0, pfad.indexOf("[]"));
+  const merkmal = pfad.slice(pfad.indexOf("[]") + 3);
+  const listenFeld = felder.find((f) => f.pfad === listenPfad);
+  const anzahl = new Map(katalog.werte.map((w) => [w.wert, 0]));
+  const sonderfaelle = { ohne: [], mehrere: [], unbekannt: [] };
+  let personen = 0;
+
+  for (const expose of exposes) {
+    const liste = wertAmPfad(expose, listenPfad);
+    if (!Array.isArray(liste)) continue;
+    liste.forEach((person, i) => {
+      personen += 1;
+      const wert = person && typeof person === "object" ? wertAmPfad(person, merkmal) : undefined;
+      const werte = Array.isArray(wert) ? wert : (wert === undefined || wert === null || wert === "" ? [] : [wert]);
+      const fall = { expose: expose.id, person: elementBezeichnung(listenFeld, person, i), werte };
+      if (werte.length === 0) sonderfaelle.ohne.push(fall);
+      else if (werte.length > 1) sonderfaelle.mehrere.push(fall);
+      else if (!anzahl.has(werte[0])) sonderfaelle.unbekannt.push(fall);
+      else anzahl.set(werte[0], anzahl.get(werte[0]) + 1);
+    });
+  }
+  const eintraege = katalog.werte.map((w) => ({ wert: w.wert, text: w.text, anzahl: anzahl.get(w.wert) }));
+  return {
+    eintraege,
+    personen,
+    personenGueltig: eintraege.reduce((summe, e) => summe + e.anzahl, 0),
+    sonderfaelle,
+  };
 }

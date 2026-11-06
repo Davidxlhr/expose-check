@@ -93,6 +93,26 @@ export function exportiere(regelsatz) {
   return dateiname;
 }
 
+// Zwischenablage (A-30): navigator.clipboard gibt es nur in sicheren Kontexten (HTTPS oder localhost);
+// writeText kann außerdem an fehlender Berechtigung scheitern (NotAllowedError). Ergebnis: { ok, grund }.
+export async function kopiereInZwischenablage(text) {
+  if (!navigator.clipboard?.writeText) {
+    return { ok: false, grund: "Der Browser stellt hier keine Zwischenablage bereit (z. B. ohne sichere Verbindung)." };
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return { ok: true };
+  } catch (fehler) {
+    console.error(fehler);
+    return {
+      ok: false,
+      grund: fehler?.name === "NotAllowedError"
+        ? "Der Browser hat den Zugriff auf die Zwischenablage nicht erlaubt."
+        : "Die Zwischenablage hat den Text nicht angenommen.",
+    };
+  }
+}
+
 // Baut den Import-Baustein aus <template id="vorlage-import"> in `platz` ein.
 // beiErfolg(regelsatz, dateiname) übernimmt; melde(text) schreibt in den Statusbereich.
 export function bindeImport(platz, praefix, { beiErfolg, melde }) {
