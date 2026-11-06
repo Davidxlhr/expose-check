@@ -113,7 +113,7 @@ export function pruefeRegelsatz(daten, regeltypen) {
 
   if (!Array.isArray(daten.regeln)) {
     fehler.push("regeln: Liste erwartet");
-    return fehler;
+    return lesbareMeldungen(fehler, daten);
   }
   const ids = new Set();
   daten.regeln.forEach((regel, i) => {
@@ -144,7 +144,7 @@ export function pruefeRegelsatz(daten, regeltypen) {
 
     if (regel.wenn !== undefined) pruefeBedingung(regel.wenn, `${pfad}.wenn`, daten, fehler);
   });
-  return fehler;
+  return lesbareMeldungen(fehler, daten);
 }
 
 function pruefeFelder(daten, fehler) {
@@ -280,4 +280,40 @@ export function pruefeAngabenformat(daten, felder) {
     }
   });
   return fehler;
+}
+
+// ---------- Lesbare Meldungen (nur Darstellung, die Prüfung selbst bleibt unverändert) ----------
+
+// Die Prüfung erzeugt technische Pfade ab 0 („regeln[5].parameter.max“). Für die Lehrperson wird jede
+// regel- bzw. katalogbezogene Meldung um eine Kennung ergänzt, die sie in der Oberfläche wiederfindet:
+//   Regel R-06 (regeln[5]) – parameter.max: Zahl erwartet, gefunden Text
+//   Regel 6 von 18, ohne gültige ID (regeln[5]) – id: Format R-01 erwartet
+//   Katalog „Theoretische Schwerpunkte“, Eintrag 9 (kataloge.schwerpunkte.werte[8]) – wert: Wert 6 kommt doppelt vor
+// Form: Kennung zuerst (die ID steht so auch im Editor und in der Detailansicht), der technische Pfad bleibt
+// in Klammern stehen, damit die Stelle in der JSON-Datei auffindbar ist. Eine ID gilt nur als lesbar, wenn sie
+// das erwartete Format hat; sonst zählt die Position ab 1 („Regel 6 von 18“). Nachträgliche Umformung statt
+// geänderter Pfade in den Prüffunktionen: So bleiben Prüflogik und Pfade für Tests und Fehlersuche gleich.
+function lesbareMeldungen(fehler, daten) {
+  return fehler.map((meldung) => lesbareMeldung(meldung, daten));
+}
+
+function lesbareMeldung(meldung, daten) {
+  const regel = /^(regeln\[(\d+)\])(?:\.([^:]+))?: ([\s\S]*)$/.exec(meldung);
+  if (regel) {
+    const [, pfad, nummer, rest, text] = regel;
+    const i = Number(nummer);
+    const id = daten.regeln?.[i]?.id;
+    const kennung = typeof id === "string" && REGEL_ID_MUSTER.test(id)
+      ? `Regel ${id}`
+      : `Regel ${i + 1} von ${daten.regeln.length}, ohne gültige ID`;
+    return `${kennung} (${pfad}) – ${rest ? `${rest}: ` : ""}${text}`;
+  }
+  const eintrag = /^(kataloge\.([^.\s:]+)\.werte\[(\d+)\])(?:\.([^:]+))?: ([\s\S]*)$/.exec(meldung);
+  if (eintrag) {
+    const [, pfad, katalogId, nummer, rest, text] = eintrag;
+    const bezeichnung = daten.kataloge?.[katalogId]?.bezeichnung;
+    const name = typeof bezeichnung === "string" && bezeichnung.trim() !== "" ? bezeichnung : katalogId;
+    return `Katalog „${name}“, Eintrag ${Number(nummer) + 1} (${pfad}) – ${rest ? `${rest}: ` : ""}${text}`;
+  }
+  return meldung;
 }

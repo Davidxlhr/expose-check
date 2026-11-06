@@ -56,7 +56,9 @@ pdf/               synthetische Exposé-PDFs (nur Vorschau, der Inhalt wird nich
 ## Starten
 
 - **Online:** https://stackblitz.com/github/Davidxlhr/expose-check – StackBlitz installiert den statischen
-  Server aus der `package.json` und startet ihn automatisch.
+  Server aus der `package.json` und startet ihn automatisch. Die Vorschau neben dem Code ist schmal; in voller
+  Breite öffnet sie sich in einem eigenen Tab über das Symbol (Pfeil aus einem Kästchen) rechts neben der
+  Adresszeile der Vorschau. StackBlitz nennt die Schaltfläche „Open Preview in new tab“ (Stand 06.11.2026).
 - **Lokal:** im Projektordner einen einfachen Webserver starten und die angezeigte Adresse im Browser öffnen:
   - `python3 -m http.server` (dann http://localhost:8000) oder
   - `npm install && npm start` (dann http://localhost:8080)
